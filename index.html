@@ -168,7 +168,7 @@
   .draft-mode-tab.active{ color:#1a0a12; background: var(--magenta); border-color: var(--magenta); font-weight:700; }
   .num-picker{
     display:grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 5px;
     margin-top: 4px;
   }
@@ -272,6 +272,26 @@
     border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 11px;
   }
   .draft-list-del:hover{ color: var(--magenta); border-color: var(--magenta); }
+  .draft-undo-bar{
+    display:flex; align-items:center; gap:10px;
+    padding: 8px 10px; margin-bottom: 10px;
+    background: rgba(111,245,255,0.06);
+    border: 1px solid rgba(111,245,255,0.35);
+    border-radius: 4px;
+  }
+  .draft-undo-btn{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .draft-undo-btn:hover{ background: rgba(111,245,255,0.15); }
+  .draft-undo-desc{ font-size: 11px; color: var(--text-dim); }
   .free-overlay-controls{
     display:flex; flex-wrap:wrap; gap:8px;
     margin-top:12px; padding-top:10px;
@@ -702,6 +722,8 @@ function initApp(GG_DATA){
 const DRAFT_STORE_KEY = 'ggDraftDraws_v1';
 const DRAFT_CARRYOVER_KEY = 'ggDraftCarryover_v1';
 const DRAFT_PREDICTION_KEY = 'ggDraftPredictions_v1';
+const DRAFT_UNDO_KEY = 'ggDraftUndoStack_v1';
+const DRAFT_UNDO_MAX = 20;
 
 const ALL_PATTERN_DATA = GG_DATA.loto7.all.data;
 const ALL_PATTERN_TICKS = GG_DATA.loto7.all.tickLabels;
@@ -3181,6 +3203,7 @@ function renderResultForm(){
     cur[g] = (cur[g]||[]).filter(d=>d.no !== no);
     const sortedMain = main.sort((a,b)=>a-b);
     const sortedBonus = bonus.sort((a,b)=>a-b);
+    pushUndo('result', g, no, existing || null);
     cur[g].push({no, date, main: sortedMain, bonus: sortedBonus});
     saveDrafts(cur);
 
@@ -3351,6 +3374,7 @@ function renderPredictionForm(){
       }
     }
     cur[g] = (cur[g]||[]).filter(d=>d.no !== no);
+    pushUndo('prediction', g, no, existing || null);
     cur[g].push({no, predicted: predicted.sort((a,b)=>a-b), predictNote, resultNote, weights: savedWeights});
     saveDraftPredictions(cur);
     location.reload();
@@ -3371,11 +3395,21 @@ function renderDraftList(){
     ...carry.loto6.map(d=>({...d, game:'loto6', gameLabel:'ロト6', kind:'carryover'})),
   ];
   if(!items.length){
-    listEl.innerHTML = '<div class="draft-note">保存済みの下書きはありません。</div>';
+    const undoLabel0 = undoSummaryLabel();
+    listEl.innerHTML = undoLabel0
+      ? `<div class="draft-undo-bar"><button type="button" class="draft-undo-btn" id="draftUndoBtn">↺ 元に戻す</button><span class="draft-undo-desc">${undoLabel0}</span></div><div class="draft-note">保存済みの下書きはありません。</div>`
+      : '<div class="draft-note">保存済みの下書きはありません。</div>';
+    if(undoLabel0){
+      document.getElementById('draftUndoBtn').addEventListener('click', undoLastDraftChange);
+    }
     return;
   }
   const kindLabel = {result:'結果', prediction:'予想', carryover:'CO当選'};
-  listEl.innerHTML = items.map(d=>{
+  const undoLabel = undoSummaryLabel();
+  const undoBar = undoLabel
+    ? `<div class="draft-undo-bar"><button type="button" class="draft-undo-btn" id="draftUndoBtn">↺ 元に戻す</button><span class="draft-undo-desc">${undoLabel}</span></div>`
+    : '';
+  listEl.innerHTML = undoBar + items.map(d=>{
     const tag = kindLabel[d.kind];
     const nums = d.kind === 'prediction' ? d.predicted : d.main;
     const bonusTxt = d.kind !== 'prediction' && d.bonus && d.bonus.length ? ' / B:' + d.bonus.join(',') : '';
@@ -3384,19 +3418,28 @@ function renderDraftList(){
       <button class="draft-list-del" type="button" data-kind="${d.kind}" data-game="${d.game}" data-no="${d.no}">削除</button>
     </div>`;
   }).join('');
+  if(undoLabel){
+    document.getElementById('draftUndoBtn').addEventListener('click', undoLastDraftChange);
+  }
   listEl.querySelectorAll('.draft-list-del').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const kind = btn.dataset.kind, game = btn.dataset.game, no = Number(btn.dataset.no);
       if(kind === 'result'){
         const cur = loadDrafts();
+        const existing = (cur[game]||[]).find(d=>d.no === no);
+        pushUndo('result', game, no, existing || null);
         cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
         saveDrafts(cur);
       }else if(kind === 'prediction'){
         const cur = loadDraftPredictions();
+        const existing = (cur[game]||[]).find(d=>d.no === no);
+        pushUndo('prediction', game, no, existing || null);
         cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
         saveDraftPredictions(cur);
       }else{
         const cur = loadCarryoverDrafts();
+        const existing = (cur[game]||[]).find(d=>d.no === no);
+        pushUndo('carryover', game, no, existing || null);
         cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
         saveCarryoverDrafts(cur);
       }
@@ -3492,6 +3535,8 @@ function saveCarryoverDrafts(drafts){
 
 function addCarryoverDraft(game, entry){
   const cur = loadCarryoverDrafts();
+  const existing = (cur[game]||[]).find(d=>d.no === entry.no);
+  pushUndo('carryover', game, entry.no, existing || null);
   cur[game] = (cur[game]||[]).filter(d=>d.no !== entry.no);
   cur[game].push(entry);
   saveCarryoverDrafts(cur);
@@ -3515,6 +3560,69 @@ function mergeDraftIntoCarryoverTracks(tracks){
     });
     tracks.loto6carryover.data.sort((a,b)=>a.no-b.no);
   }
+}
+
+// ---- undo: a single shared history of "what got overwritten or deleted"
+// across all three draft stores (result / prediction / carryover). Every
+// save-over-existing and every delete pushes what was there *before* the
+// change onto this stack (previousEntry: null means "this was a brand new
+// entry, nothing existed before it" — undoing it just removes it again).
+// One "元に戻す" button in the draft panel always undoes the single most
+// recent change, regardless of which store or game it touched.
+function loadUndoStack(){
+  try{
+    const raw = localStorage.getItem(DRAFT_UNDO_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function saveUndoStack(stack){
+  try{
+    localStorage.setItem(DRAFT_UNDO_KEY, JSON.stringify(stack.slice(-DRAFT_UNDO_MAX)));
+  }catch(e){
+    console.warn('[GhostGrid] failed to save undo stack to localStorage', e);
+  }
+}
+
+function pushUndo(kind, game, no, previousEntry){
+  const stack = loadUndoStack();
+  stack.push({kind, game, no, previousEntry, at: Date.now()});
+  saveUndoStack(stack);
+}
+
+function peekUndo(){
+  const stack = loadUndoStack();
+  return stack.length ? stack[stack.length-1] : null;
+}
+
+function undoLastDraftChange(){
+  const stack = loadUndoStack();
+  const last = stack.pop();
+  if(!last) return;
+  saveUndoStack(stack);
+  const {kind, game, no, previousEntry} = last;
+  const storeMap = {
+    result: {load: loadDrafts, save: saveDrafts},
+    prediction: {load: loadDraftPredictions, save: saveDraftPredictions},
+    carryover: {load: loadCarryoverDrafts, save: saveCarryoverDrafts}
+  };
+  const {load, save} = storeMap[kind];
+  const cur = load();
+  cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
+  if(previousEntry) cur[game].push(previousEntry);
+  save(cur);
+  location.reload();
+}
+
+function undoSummaryLabel(){
+  const last = peekUndo();
+  if(!last) return null;
+  const kindLabel = {result:'結果', prediction:'予想', carryover:'CO当選'};
+  const gameLabel = last.game === 'loto6' ? 'ロト6' : 'ロト7';
+  const what = last.previousEntry ? '上書き前の内容に戻す' : '追加を取り消す';
+  return `[${gameLabel}/${kindLabel[last.kind]}] 第${last.no}回の${what}`;
 }
 
 // ---- storage: prediction drafts ----
