@@ -3217,7 +3217,7 @@ function renderResultForm(){
 function renderPredictionForm(){
   const area = document.getElementById('draftFormArea');
   area.innerHTML = `
-    <div class="draft-note">結果が出る前の予想を保存できます。対応する回の結果（結果の下書き、または公式data.json更新）が登録されると、予想ログで自動的に突き合わされます。回号を選び直すと、その回の下書きがあれば読み込んで編集できます。</div>
+    <div class="draft-note">結果が出る前の予想を保存できます。対応する回の結果（結果の下書き、または公式data.json更新）が登録されると、予想ログで自動的に突き合わされます。回号を選び直すと、その回の下書きがあれば読み込んで編集できます。結果がすでに出ている直近の回も選べるので、記録し忘れた予想を後から入力することもできます。</div>
     <div class="draft-row">
       <div>
         <label>ゲーム</label>
@@ -3331,9 +3331,17 @@ function renderPredictionForm(){
   function refreshNoOptions(g){
     const upcoming = buildNoOptions(nextPredictionNo(g), 6);
     const existingNos = (loadDraftPredictions()[g]||[]).map(d=>d.no);
-    const allNos = [...new Set([...existingNos, ...upcoming])].sort((a,b)=>a-b);
+    // also offer recent already-resolved rounds, so a prediction forgotten
+    // before the draw (or one made on paper and entered late) can still be
+    // logged retroactively — not just upcoming, unresolved rounds
+    const track = g === 'loto6' ? TRACKS.loto6 : TRACKS.all;
+    const recentResolved = track.data.slice(-15).map(d=>d.no);
+    const drawMax = nextDrawNo(g) - 1;
+    const allNos = [...new Set([...recentResolved, ...existingNos, ...upcoming])].sort((a,b)=>a-b);
     noSel.innerHTML = allNos.map(n=>{
-      const tag = existingNos.includes(n) ? '（下書きあり）' : '';
+      let tag = '';
+      if(existingNos.includes(n)) tag = '（下書きあり）';
+      else if(n <= drawMax) tag = '（結果あり・後から記録）';
       return `<option value="${n}">第${n}回${tag}</option>`;
     }).join('');
   }
