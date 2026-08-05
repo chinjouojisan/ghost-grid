@@ -141,7 +141,69 @@
     margin-bottom: 14px;
     line-height: 1.6;
   }
-  .draft-bar{ margin-bottom: 14px; }
+  .log-note{
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-left: 2px solid rgba(245,228,140,0.5);
+    background: rgba(245,228,140,0.05);
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+  .log-note strong{ color: var(--text); font-weight: 500; }
+  .draft-bar{ margin-bottom: 14px; display:flex; flex-wrap:wrap; gap:8px; }
+  .export-toggle-btn{ border-color: var(--cyan); color: var(--cyan); }
+  .export-toggle-btn:hover{ background: rgba(111,245,255,0.08); }
+  .draft-mode-tabs{ display:flex; gap:8px; margin-bottom:12px; }
+  .draft-mode-tab{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--grid-line);
+    color: var(--text-dim);
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .draft-mode-tab.active{ color:#1a0a12; background: var(--magenta); border-color: var(--magenta); font-weight:700; }
+  .num-picker{
+    display:grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    margin-top: 4px;
+  }
+  .num-picker-btn{
+    font-family:'Space Mono', monospace;
+    background: var(--bg2);
+    border: 1px solid var(--grid-line);
+    color: var(--text-dim);
+    border-radius: 3px;
+    padding: 6px 0;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .num-picker-btn.selected{
+    background: var(--magenta);
+    border-color: var(--magenta);
+    color: #1a0a12;
+    font-weight: 700;
+  }
+  .num-picker-btn.disabled{ opacity: 0.3; cursor: default; }
+  .num-picker-count{ font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+  .export-textarea{
+    width: 100%;
+    min-height: 220px;
+    background: var(--bg2);
+    border: 1px solid var(--grid-line);
+    color: var(--text);
+    font-family:'Space Mono', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+    padding: 10px;
+    border-radius: 3px;
+    resize: vertical;
+  }
   .draft-toggle-btn{
     font-family:'Space Mono', monospace;
     background: transparent;
@@ -210,6 +272,54 @@
     border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 11px;
   }
   .draft-list-del:hover{ color: var(--magenta); border-color: var(--magenta); }
+  .free-overlay-controls{
+    display:flex; flex-wrap:wrap; gap:8px;
+    margin-top:12px; padding-top:10px;
+    border-top:1px dashed rgba(244,241,222,0.25);
+  }
+  .overlay-toggle-btn{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--grid-line);
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .overlay-toggle-btn.active{ font-weight:700; }
+  .overlay-toggle-btn.mist{ color:#BFD9FF; }
+  .overlay-toggle-btn.mist.active{ background:rgba(191,217,255,0.15); border-color:#BFD9FF; }
+  .overlay-toggle-btn.dense{ color: var(--cyan); }
+  .overlay-toggle-btn.dense.active{ background:rgba(111,245,255,0.15); border-color: var(--cyan); }
+  .overlay-toggle-btn.sparse{ color: var(--magenta); }
+  .overlay-toggle-btn.sparse.active{ background:rgba(255,111,201,0.15); border-color: var(--magenta); }
+  .overlay-toggle-btn.co{ color:#F5E48C; }
+  .overlay-toggle-btn.co.active{ background:rgba(245,228,140,0.15); border-color:#F5E48C; }
+  .mist-controls{
+    display:flex; flex-wrap:wrap; gap:14px;
+    margin-top:12px; padding-top:10px;
+    border-top:1px dashed rgba(244,241,222,0.25);
+  }
+  .mist-control-group{ display:flex; align-items:center; gap:6px; }
+  .mist-control-label{
+    font-family:'Space Mono', monospace;
+    font-size:11px; color: var(--text-dim);
+    margin-right:2px;
+  }
+  .mist-control-label.dense{ color: var(--cyan); }
+  .mist-control-label.sparse{ color: var(--magenta); }
+  .mist-btn{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--grid-line);
+    color: var(--text);
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .mist-btn:hover{ border-color: var(--cyan); }
   .draggable{ cursor: grab; touch-action: pinch-zoom; }
   .dragging{ cursor: grabbing; touch-action: pinch-zoom; }
   svg{ width:100%; height:auto; display:block; overflow: hidden; }
@@ -472,12 +582,15 @@
         </div>
       </div>
       <div class="draft-bar">
-        <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 最新回を追加（下書き・この端末のみ）</button>
+        <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 結果・予想を記録（下書き・この端末のみ）</button>
+        <button id="exportToggleBtn" class="draft-toggle-btn export-toggle-btn" type="button">📋 分析用データを書き出す</button>
         <div id="draftPanel" class="draft-panel" style="display:none;"></div>
+        <div id="exportPanel" class="draft-panel" style="display:none;"></div>
       </div>
       <div id="freeBanner" class="ghost-banner" style="display:none;">
         各点を自由にドラッグできます。線は自動でついてきます。指を離すと、一番近いマスの中心にスナップします（蠢きはありません・当選数字の予測ではありません）。
         <button id="freeResetBtn" style="margin-left:8px;">元の並びに戻す</button>
+        <div id="freeOverlayControls"></div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -510,6 +623,7 @@
         <div class="draw-date" id="drawDate">2026/7/24</div>
         <div class="nums" id="mainNums"></div>
         <div class="nums" id="bonusNums"></div>
+        <div id="logNote" class="log-note" style="display:none;"></div>
       </div>
 
       <div class="card">
@@ -586,6 +700,8 @@
 function initApp(GG_DATA){
 
 const DRAFT_STORE_KEY = 'ggDraftDraws_v1';
+const DRAFT_CARRYOVER_KEY = 'ggDraftCarryover_v1';
+const DRAFT_PREDICTION_KEY = 'ggDraftPredictions_v1';
 
 const ALL_PATTERN_DATA = GG_DATA.loto7.all.data;
 const ALL_PATTERN_TICKS = GG_DATA.loto7.all.tickLabels;
@@ -627,6 +743,7 @@ const TRACKS = {
 // merge in any device-local draft draws (see DRAFT_STORE_KEY) before anything
 // downstream reads TRACKS.all.data / TRACKS.loto6.data
 mergeDraftIntoTracks(TRACKS);
+mergeDraftIntoCarryoverTracks(TRACKS);
 // the 全パターン tabs: same rolling data as the 'all'/'loto6' definitions,
 // with the previous draw's line left faintly visible while the current one
 // morphs in
@@ -770,11 +887,24 @@ feMerge.appendChild(el('feMergeNode',{in:'blur'}));
 feMerge.appendChild(el('feMergeNode',{in:'SourceGraphic'}));
 glowFilter.appendChild(feMerge);
 defs.appendChild(glowFilter);
+// softer, wider blur for the ghost mist — a smoky haze rather than a crisp
+// neon glow, so it reads as diffuse and unresolved rather than a sharp shape
+const mistFilter = el('filter',{id:'mistBlur', x:'-80%', y:'-80%', width:'260%', height:'260%'});
+mistFilter.appendChild(el('feGaussianBlur',{stdDeviation:'5.5'}));
+defs.appendChild(mistFilter);
 const grad = el('linearGradient',{id:'bodyGrad',x1:'0%',y1:'0%',x2:'100%',y2:'100%'});
 grad.appendChild(el('stop',{offset:'0%','stop-color':'#6FF5FF'}));
 grad.appendChild(el('stop',{offset:'100%','stop-color':'#FF6FC9'}));
 defs.appendChild(grad);
 svg.appendChild(defs);
+
+// ghost mist: soft haze of many independently-resampled patterns, plus a
+// "dense" line (through the cells the mist visited most) and a "sparse"
+// line (through the cells it visited least) — see renderMistView
+const mistHazeG = el('g', {filter:'url(#mistBlur)', style:'mix-blend-mode:screen;'});
+svg.appendChild(mistHazeG);
+const mistLinesG = el('g', {filter:'url(#neonGlow)'});
+svg.appendChild(mistLinesG);
 
 // faint number dots 1-37 — bright, phosphorescent-style glow against the dark grid
 const dotsG = el('g', {filter:'url(#neonGlow)'});
@@ -917,6 +1047,13 @@ svg.appendChild(dragHandle);
 // plain connecting line + one draggable handle per point
 const freeReferenceG = el('g',{filter:'url(#neonGlow)'});
 svg.appendChild(freeReferenceG);
+// reference overlays for 自由配置: mist particles / dense line / sparse
+// line / carryover-free-arrangement line, individually toggleable, drawn
+// behind the person's own draggable points and line — see renderFreeOverlays
+const freeOverlayHazeG = el('g', {filter:'url(#mistBlur)', style:'mix-blend-mode:screen;'});
+svg.appendChild(freeOverlayHazeG);
+const freeOverlayLinesG = el('g', {filter:'url(#neonGlow)', opacity:0.75});
+svg.appendChild(freeOverlayLinesG);
 const freePath = el('path',{fill:'none',stroke:'url(#bodyGrad)',['stroke-width']:2.4,['stroke-linecap']:'round',opacity:0.95,filter:'url(#neonGlow)'});
 svg.appendChild(freePath);
 const freePointsG = el('g',{});
@@ -1162,6 +1299,7 @@ function renderLogFrame(idx){
     document.getElementById('drawDate').textContent = 'まだ記録がありません';
     document.getElementById('mainNums').innerHTML = '';
     document.getElementById('bonusNums').innerHTML = '<span style="color:var(--text-dim);font-size:12px;">次回の抽選前に予想数字を教えてください</span>';
+    document.getElementById('logNote').style.display = 'none';
     return;
   }
   idx = Math.max(0, Math.min(entries.length-1, idx));
@@ -1176,8 +1314,11 @@ function renderLogFrame(idx){
 
   const predSorted0 = [...e.predicted].sort((a,b)=>a-b);
   const predPts = predSorted0.map(gridXY);
-  logG.appendChild(el('path',{d:catmullRomPath(predPts), fill:'none', stroke:'#F5E48C', ['stroke-width']:2.2, ['stroke-dasharray']:'6,4', opacity:0.85}));
-  predPts.forEach(([x,y])=>logG.appendChild(el('circle',{cx:x,cy:y,r:6, fill:'none', stroke:'#F5E48C', ['stroke-width']:1.6, opacity:0.85})));
+  // thin, bright dashed line — logG already sits inside a neonGlow-filtered
+  // group, so keeping the stroke thin (rather than thick+dashed) lets the
+  // blur read as a soft glow instead of just a fat dotted line
+  logG.appendChild(el('path',{d:catmullRomPath(predPts), fill:'none', stroke:'#F5E48C', ['stroke-width']:1.3, ['stroke-dasharray']:'5,3', opacity:0.95}));
+  predPts.forEach(([x,y])=>logG.appendChild(el('circle',{cx:x,cy:y,r:5, fill:'none', stroke:'#F5E48C', ['stroke-width']:1.2, opacity:0.9})));
   const pcx = predPts.reduce((s,p)=>s+p[0],0)/predPts.length;
   const pcy = predPts.reduce((s,p)=>s+p[1],0)/predPts.length;
 
@@ -1230,6 +1371,24 @@ function renderLogFrame(idx){
   scrub.value = idx;
   document.getElementById('timelineTicks').innerHTML = entries.map(x=>`<span>第${x.no}回</span>`).join('');
   document.getElementById('trailTitle').textContent = `予想ログ — ${logGame === 'loto6' ? 'ロト6' : 'ロト7'}`;
+
+  const noteEl = document.getElementById('logNote');
+  const noteParts = [];
+  if(e.weights) noteParts.push(`<div><strong>意識の配分：</strong>ライン ${e.weights.line}% / 重心 ${e.weights.centroid}% / 数字 ${e.weights.number}%</div>`);
+  if(e.predictNote) noteParts.push(`<div style="margin-top:6px;"><strong>予想メモ：</strong>${escapeHtml(e.predictNote)}</div>`);
+  if(e.resultNote) noteParts.push(`<div style="margin-top:6px;"><strong>結果メモ：</strong>${escapeHtml(e.resultNote)}</div>`);
+  if(noteParts.length){
+    noteEl.innerHTML = noteParts.join('');
+    noteEl.style.display = 'block';
+  }else{
+    noteEl.style.display = 'none';
+  }
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 function logGoTo(idx){
@@ -2068,6 +2227,215 @@ function renderGhostView(key){
   renderGhostFrame();
 }
 
+// ---- Ghost mist ---------------------------------------------------------
+// Replaces the old swirl-physics ghost (a single line settling into one
+// resting shape) with something closer to smoke: many independently
+// resampled patterns (same gap-pool method as the old ghost, see
+// sampleGhostNumberSet) overlaid as a soft, non-convergent haze. A "dense"
+// line threads through the cells the mist visited most; a "sparse" line
+// threads through the cells it visited least. Neither claims to predict the
+// draw — see the mist banner copy. The old renderGhostView/physics above is
+// left in place but unreachable from here, in case any of it is wanted again.
+const MIST_PATTERN_COUNT = 45;
+const mistGapPoolCache = {};
+const mistHistory = { loto7: [], loto6: [] };
+const mistIndex = { loto7: -1, loto6: -1 };
+let mistParticles = [];
+let mistAnimHandle = null;
+
+// Continuous flicker loop — each particle's radius/opacity drifts along its
+// own sine wave (random phase + speed per particle), so the mist reads as
+// unsettled rather than a static image. Only touches r/opacity attributes on
+// existing elements, never rebuilds the DOM, so it's cheap per frame.
+function mistAnimStep(now){
+  mistParticles.forEach(p=>{
+    const flicker = 0.5 + 0.5*Math.sin(now*0.001*p.speed + p.phase);
+    p.el.setAttribute('r', (p.baseR * (0.7 + 0.3*flicker)).toFixed(2));
+    p.el.setAttribute('opacity', (p.baseOpacity * (0.5 + 0.5*flicker)).toFixed(3));
+  });
+  mistAnimHandle = requestAnimationFrame(mistAnimStep);
+}
+function startMistAnim(){
+  if(mistAnimHandle === null) mistAnimHandle = requestAnimationFrame(mistAnimStep);
+}
+function stopMistAnim(){
+  if(mistAnimHandle !== null){ cancelAnimationFrame(mistAnimHandle); mistAnimHandle = null; }
+}
+
+function buildGapPool(baseline){
+  const K = baseline[0].main.length;
+  const gapPool = [], firstPool = [];
+  for(const d of baseline){
+    const v = [...d.main].sort((a,b)=>a-b);
+    firstPool.push(v[0]);
+    for(let i=0;i<v.length-1;i++) gapPool.push(v[i+1]-v[i]);
+  }
+  return {K, gapPool, firstPool};
+}
+
+// Same independent gap-resampling as the old ghost's sampleProfile, minus
+// the centroid/phase bookkeeping that only mattered for the swirl physics —
+// this just needs the raw number set.
+function sampleGhostNumberSet(pool, maxNumber, rand){
+  const {K, gapPool, firstPool} = pool;
+  let nums = null;
+  for(let tries=0; tries<300 && !nums; tries++){
+    let span = 0;
+    const g = [];
+    for(let i=0;i<K-1;i++){ const v = gapPool[Math.floor(rand()*gapPool.length)]; g.push(v); span += v; }
+    if(span > maxNumber-1) continue;
+    const fits = firstPool.filter(f => f + span <= maxNumber);
+    if(!fits.length) continue;
+    nums = [fits[Math.floor(rand()*fits.length)]];
+    for(const v of g) nums.push(nums[nums.length-1] + v);
+  }
+  if(!nums){ // vanishingly unlikely fallback so this never leaves nums undefined
+    nums = [];
+    for(let i=0;i<K;i++) nums.push(Math.min(maxNumber, 1+i*Math.floor(maxNumber/K)));
+  }
+  return nums;
+}
+
+function generateMistBundle(game){
+  const baseline = game === 'loto6' ? loto6BaselineDraws : baselineDraws;
+  const maxNumber = game === 'loto6' ? 43 : 37;
+  if(!mistGapPoolCache[game]) mistGapPoolCache[game] = buildGapPool(baseline);
+  const pool = mistGapPoolCache[game];
+  const rand = mulberry32((Math.random()*4294967296)>>>0);
+  const density = new Array(maxNumber+1).fill(0);
+  const patterns = [];
+  for(let i=0;i<MIST_PATTERN_COUNT;i++){
+    const nums = sampleGhostNumberSet(pool, maxNumber, rand);
+    patterns.push(nums);
+    nums.forEach(n=>{ density[n] += 1; });
+  }
+  const byDensity = [];
+  for(let n=1;n<=maxNumber;n++) byDensity.push({n, d:density[n]});
+  const denseNums = [...byDensity].sort((a,b)=> b.d-a.d || a.n-b.n).slice(0,pool.K).map(x=>x.n).sort((a,b)=>a-b);
+  const sparseNums = [...byDensity].sort((a,b)=> a.d-b.d || a.n-b.n).slice(0,pool.K).map(x=>x.n).sort((a,b)=>a-b);
+  return {game, maxNumber, K:pool.K, density, patterns, denseNums, sparseNums};
+}
+
+function currentMistBundle(game){
+  const hist = mistHistory[game], idx = mistIndex[game];
+  return (idx >= 0 && idx < hist.length) ? hist[idx] : null;
+}
+
+// Pushes a fresh bundle onto this game's history, discarding any entries
+// past the current pointer first — same undo/redo convention as a browser's
+// back/forward: generating something new after stepping back throws away
+// the branch you stepped away from.
+function mistForward(game){
+  const bundle = generateMistBundle(game);
+  mistHistory[game] = mistHistory[game].slice(0, mistIndex[game]+1);
+  mistHistory[game].push(bundle);
+  mistIndex[game] = mistHistory[game].length - 1;
+  renderMistFrame(game);
+}
+
+function mistBack(game){
+  if(mistIndex[game] > 0){
+    mistIndex[game] -= 1;
+    renderMistFrame(game);
+  }
+}
+
+function renderMistView(key){
+  const track = TRACKS[GHOST_SOURCE_TRACK[key]];
+  const game = track.game || 'loto7';
+  ghostTapRect.style.display = 'none'; // the old tap-to-reroll gesture belonged to the retired swirl ghost
+  renderMistBanner(game);
+  if(!currentMistBundle(game)){
+    mistForward(game);
+  }else{
+    renderMistFrame(game);
+  }
+}
+
+function renderMistBanner(game){
+  const banner = document.getElementById('ghostBanner');
+  banner.innerHTML = `
+    霧の中には${MIST_PATTERN_COUNT}パターン分の独立な再抽選が重なっています。当選数字の予測ではありません — 密のラインは霧の中でよく通ったマスを、疎のラインはあまり通らなかった谷間を結んだものです。答えを一つに絞る仕組みではないので、下のボタンで何度でも引き直せます。
+    <div class="mist-controls">
+      <div class="mist-control-group">
+        <span class="mist-control-label">モヤ</span>
+        <button type="button" class="mist-btn" id="mistBackBtn">◀ 戻る</button>
+        <button type="button" class="mist-btn" id="mistFwdBtn">進む ▶</button>
+      </div>
+      <div class="mist-control-group">
+        <span class="mist-control-label dense">密ライン</span>
+        <button type="button" class="mist-btn" id="denseBackBtn">◀ 戻る</button>
+        <button type="button" class="mist-btn" id="denseFwdBtn">進む ▶</button>
+      </div>
+      <div class="mist-control-group">
+        <span class="mist-control-label sparse">疎ライン</span>
+        <button type="button" class="mist-btn" id="sparseBackBtn">◀ 戻る</button>
+        <button type="button" class="mist-btn" id="sparseFwdBtn">進む ▶</button>
+      </div>
+    </div>
+  `;
+  // all three pairs act on the same shared history (see mistForward/mistBack
+  // docs above) — three doors into one room, so whichever you press, mist
+  // and both lines stay a matched set
+  ['mistFwdBtn','denseFwdBtn','sparseFwdBtn'].forEach(id=>{
+    document.getElementById(id).addEventListener('click', ()=> mistForward(game));
+  });
+  ['mistBackBtn','denseBackBtn','sparseBackBtn'].forEach(id=>{
+    document.getElementById(id).addEventListener('click', ()=> mistBack(game));
+  });
+}
+
+function renderMistFrame(game){
+  const bundle = currentMistBundle(game);
+  if(!bundle) return;
+  while(mistHazeG.firstChild) mistHazeG.removeChild(mistHazeG.firstChild);
+  while(mistLinesG.firstChild) mistLinesG.removeChild(mistLinesG.firstChild);
+  stopMistAnim();
+  mistParticles = [];
+
+  // haze: one glowing particle per cell the mist visited, sized/brightened
+  // by how often it came up across the resamples — not a claim about which
+  // numbers are "due", just where this particular batch of noise happened to
+  // land. Each particle flickers on its own random phase (see mistAnimStep)
+  // so the mist keeps drifting rather than sitting as a static image.
+  const maxDensity = Math.max(1, ...bundle.density);
+  for(let n=1; n<=bundle.maxNumber; n++){
+    const d = bundle.density[n];
+    if(!d) continue;
+    const ratio = d / maxDensity;
+    const [x,y] = gridXY(n);
+    const baseR = 4 + ratio*15;
+    const baseOpacity = 0.18 + ratio*0.55;
+    const particleEl = el('circle',{cx:x, cy:y, r:baseR, fill:'#BFD9FF', opacity:baseOpacity});
+    mistHazeG.appendChild(particleEl);
+    mistParticles.push({
+      el: particleEl,
+      baseR,
+      baseOpacity,
+      phase: Math.random()*Math.PI*2,
+      speed: 0.5 + Math.random()*1.3
+    });
+  }
+  startMistAnim();
+
+  // dense line — cells the mist visited most, cyan/pink gradient (matches
+  // the app's "real draw" visual language). Fixed once drawn — only the
+  // haze underneath keeps moving.
+  const densePts = bundle.denseNums.map(gridXY);
+  mistLinesG.appendChild(el('path',{d:catmullRomPath(densePts), fill:'none', stroke:'url(#bodyGrad)', ['stroke-width']:1.6, opacity:0.9}));
+  densePts.forEach(([x,y])=> mistLinesG.appendChild(el('circle',{cx:x,cy:y,r:5,fill:'#dff7fb',opacity:0.9})));
+
+  // sparse line — the mist's blind spots, dashed magenta. Also fixed.
+  const sparsePts = bundle.sparseNums.map(gridXY);
+  mistLinesG.appendChild(el('path',{d:catmullRomPath(sparsePts), fill:'none', stroke:'#FF6FC9', ['stroke-width']:1.3, ['stroke-dasharray']:'5,3', opacity:0.85}));
+  sparsePts.forEach(([x,y])=> mistLinesG.appendChild(el('circle',{cx:x,cy:y,r:4,fill:'none',stroke:'#FF6FC9',['stroke-width']:1.4,opacity:0.85})));
+
+  document.getElementById('mainNums').innerHTML = bundle.denseNums.map(n=>`<span class="num-chip" style="border-color:rgba(111,245,255,0.5);background:rgba(111,245,255,0.08);">${String(n).padStart(2,'0')}</span>`).join('');
+  document.getElementById('bonusNums').innerHTML = bundle.sparseNums.map(n=>`<span class="num-chip" style="color:#FF6FC9;border-color:rgba(255,111,201,0.5);background:rgba(255,111,201,0.08);">${String(n).padStart(2,'0')}</span>`).join('');
+  document.getElementById('drawId').textContent = game === 'loto6' ? 'ゴースト・ミスト（ロト6）' : 'ゴースト・ミスト';
+  document.getElementById('drawDate').textContent = '密＝シアン（上段）／疎＝マゼンタ（下段）';
+}
+
 const TAP_MOVE_THRESHOLD = 22; // svg user units — below this, a gesture counts as a tap, not a drag (loose enough to tolerate natural finger jitter on touch)
 
 dragHandle.setAttribute('style', 'touch-action:pinch-zoom;');
@@ -2223,6 +2591,87 @@ function renderFreeView(key){
   });
 
   renderFreeFrame();
+  renderFreeOverlayControls(key);
+}
+
+// ---- 自由配置 reference overlays: mist / dense line / sparse line / CO
+// free-arrangement line, individually toggleable (default off). These are
+// pure reference layers — none of them move the person's own draggable
+// points. Only offered on freeLoto7/freeLoto6 (not on the CO free-
+// arrangement tabs themselves, which are one of the sources).
+const freeOverlayState = {
+  freeLoto7: {mist:false, dense:false, sparse:false, co:false},
+  freeLoto6: {mist:false, dense:false, sparse:false, co:false}
+};
+const FREE_OVERLAY_GAME = { freeLoto7:'loto7', freeLoto6:'loto6' };
+const FREE_OVERLAY_CO_KEY = { freeLoto7:'freeCarry7', freeLoto6:'freeCarry6' };
+
+function renderFreeOverlayControls(key){
+  const container = document.getElementById('freeOverlayControls');
+  if(!(key in freeOverlayState)){
+    container.innerHTML = '';
+    return;
+  }
+  const state = freeOverlayState[key];
+  container.innerHTML = `
+    <span class="mist-control-label">反映（参考表示・自分の点は動かない）</span>
+    <button type="button" class="overlay-toggle-btn mist${state.mist?' active':''}" data-kind="mist">モヤ</button>
+    <button type="button" class="overlay-toggle-btn dense${state.dense?' active':''}" data-kind="dense">密ライン</button>
+    <button type="button" class="overlay-toggle-btn sparse${state.sparse?' active':''}" data-kind="sparse">疎ライン</button>
+    <button type="button" class="overlay-toggle-btn co${state.co?' active':''}" data-kind="co">COライン</button>
+  `;
+  container.querySelectorAll('.overlay-toggle-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const kind = btn.dataset.kind;
+      state[kind] = !state[kind];
+      btn.classList.toggle('active', state[kind]);
+      renderFreeOverlays(key);
+    });
+  });
+  renderFreeOverlays(key);
+}
+
+function renderFreeOverlays(key){
+  while(freeOverlayHazeG.firstChild) freeOverlayHazeG.removeChild(freeOverlayHazeG.firstChild);
+  while(freeOverlayLinesG.firstChild) freeOverlayLinesG.removeChild(freeOverlayLinesG.firstChild);
+  if(!(key in freeOverlayState)) return;
+  const state = freeOverlayState[key];
+  const game = FREE_OVERLAY_GAME[key];
+
+  if(state.mist || state.dense || state.sparse){
+    const bundle = currentMistBundle(game);
+    if(bundle){
+      if(state.mist){
+        const maxDensity = Math.max(1, ...bundle.density);
+        for(let n=1; n<=bundle.maxNumber; n++){
+          const d = bundle.density[n];
+          if(!d) continue;
+          const ratio = d / maxDensity;
+          const [x,y] = gridXY(n);
+          freeOverlayHazeG.appendChild(el('circle',{cx:x, cy:y, r:4+ratio*15, fill:'#BFD9FF', opacity:(0.15+ratio*0.45)*0.7}));
+        }
+      }
+      if(state.dense){
+        const pts = bundle.denseNums.map(gridXY);
+        freeOverlayLinesG.appendChild(el('path',{d:catmullRomPath(pts), fill:'none', stroke:'url(#bodyGrad)', ['stroke-width']:1.4, opacity:0.55}));
+        pts.forEach(([x,y])=> freeOverlayLinesG.appendChild(el('circle',{cx:x,cy:y,r:4, fill:'#dff7fb', opacity:0.55})));
+      }
+      if(state.sparse){
+        const pts = bundle.sparseNums.map(gridXY);
+        freeOverlayLinesG.appendChild(el('path',{d:catmullRomPath(pts), fill:'none', stroke:'#FF6FC9', ['stroke-width']:1.2, ['stroke-dasharray']:'5,3', opacity:0.55}));
+        pts.forEach(([x,y])=> freeOverlayLinesG.appendChild(el('circle',{cx:x,cy:y,r:3.5, fill:'none', stroke:'#FF6FC9', ['stroke-width']:1.2, opacity:0.55})));
+      }
+    }
+  }
+
+  if(state.co){
+    const coState = freeStateStore[FREE_OVERLAY_CO_KEY[key]];
+    if(coState){
+      const pts = coState.basePts;
+      freeOverlayLinesG.appendChild(el('path',{d:catmullRomPath(pts), fill:'none', stroke:'#F5E48C', ['stroke-width']:1.4, ['stroke-dasharray']:'3,2', opacity:0.6}));
+      pts.forEach(([x,y])=> freeOverlayLinesG.appendChild(el('circle',{cx:x,cy:y,r:4, fill:'none', stroke:'#F5E48C', ['stroke-width']:1.3, opacity:0.6})));
+    }
+  }
 }
 
 window.addEventListener('pointermove', (evt)=>{
@@ -2269,6 +2718,7 @@ document.getElementById('freeResetBtn').addEventListener('click', ()=>{
 // Loto6 entry 1: the 5-draw-trend "予想ゴースト" extrapolation computed
 // before 第2117回 was announced, logged here as the first data point.
 let PREDICTION_LOG = GG_DATA.predictionLog;
+mergeDraftPredictions(PREDICTION_LOG, TRACKS);
 
 // Small self-contained grid coordinate system for the log's mini charts —
 // deliberately independent of the main GRID_COLS/CELL state so it can't be
@@ -2309,11 +2759,14 @@ function buildMiniGridSVG(maxNumber, predicted, actual, previous){
   const predPts = predSorted.map(n=>miniGridXY(n, cols, cell, ox, oy));
 
   if(!actual){
-    // result not announced yet — show only the predicted line, a bit
-    // brighter than usual since it's the sole shape on this chart
-    s += `<path d="${catmullRomPath(predPts)}" fill="none" stroke="#F5E48C" stroke-width="1.6" stroke-dasharray="4,2" opacity="0.75"/>`;
+    // result not announced yet — show only the predicted line. A soft wide
+    // underlayer plus a thin bright core approximates a glow without an
+    // SVG filter (this mini chart is a standalone <svg> string, so it can't
+    // reference the main view's neonGlow filter defs).
+    s += `<path d="${catmullRomPath(predPts)}" fill="none" stroke="#F5E48C" stroke-width="4" opacity="0.18"/>`;
+    s += `<path d="${catmullRomPath(predPts)}" fill="none" stroke="#F5E48C" stroke-width="1.1" stroke-dasharray="4,2" opacity="0.95"/>`;
     predPts.forEach(([x,y])=>{
-      s += `<circle cx="${x}" cy="${y}" r="3.2" fill="none" stroke="#F5E48C" stroke-width="1.4" opacity="0.85"/>`;
+      s += `<circle cx="${x}" cy="${y}" r="3.2" fill="none" stroke="#F5E48C" stroke-width="1.2" opacity="0.9"/>`;
     });
     s += `</svg>`;
     return s;
@@ -2325,7 +2778,8 @@ function buildMiniGridSVG(maxNumber, predicted, actual, previous){
   const predSet = new Set(predicted);
 
   // predicted line — dim, dashed (pale yellow, matches the ghost's visual language)
-  s += `<path d="${catmullRomPath(predPts)}" fill="none" stroke="#F5E48C" stroke-width="1.3" stroke-dasharray="3,2" opacity="0.4"/>`;
+  s += `<path d="${catmullRomPath(predPts)}" fill="none" stroke="#F5E48C" stroke-width="3" opacity="0.10"/>`;
+  s += `<path d="${catmullRomPath(predPts)}" fill="none" stroke="#F5E48C" stroke-width="1" stroke-dasharray="3,2" opacity="0.55"/>`;
   predPts.forEach(([x,y],i)=>{
     const hit = actualSet.has(predSorted[i]);
     s += `<circle cx="${x}" cy="${y}" r="2.6" fill="none" stroke="#F5E48C" stroke-width="1.2" opacity="${hit?0.9:0.45}"/>`;
@@ -2353,10 +2807,11 @@ function renderPredictionLog(game){
     const hitCell = e.actual
       ? `${e.predicted.filter(n=>e.actual.includes(n)).length} / ${e.predicted.length}`
       : `<span style="color:var(--text-dim);font-size:11px;">結果待ち</span>`;
+    const noteMark = (e.predictNote || e.resultNote) ? ' <span title="メモあり" style="opacity:0.7;">📝</span>' : '';
     return `<tr>
       <td>第${e.no}回</td>
       <td>${buildMiniGridSVG(e.maxNumber, e.predicted, e.actual, e.previous)}</td>
-      <td class="log-hitcount">${hitCell}</td>
+      <td class="log-hitcount">${hitCell}${noteMark}</td>
     </tr>`;
   }).join('');
   view.innerHTML = `
@@ -2369,6 +2824,10 @@ function renderPredictionLog(game){
 }
 
 function clearDynamicLayers(){
+  stopMistAnim();
+  while(mistHazeG.firstChild) mistHazeG.removeChild(mistHazeG.firstChild);
+  while(mistLinesG.firstChild) mistLinesG.removeChild(mistLinesG.firstChild);
+  document.getElementById('logNote').style.display = 'none';
   document.getElementById('mCentroidLabel').textContent = '重心座標';
   document.getElementById('mNNLabel').textContent = '密集度（平均最近傍距離）';
   document.getElementById('shapeMetricNote').textContent = '密集度が低いほど体を丸めた形、高いほど伸びきった形に近づく。';
@@ -2388,6 +2847,8 @@ function clearDynamicLayers(){
   freePath.setAttribute('d','');
   while(freePointsG.firstChild) freePointsG.removeChild(freePointsG.firstChild);
   while(freeReferenceG.firstChild) freeReferenceG.removeChild(freeReferenceG.firstChild);
+  while(freeOverlayHazeG.firstChild) freeOverlayHazeG.removeChild(freeOverlayHazeG.firstChild);
+  while(freeOverlayLinesG.firstChild) freeOverlayLinesG.removeChild(freeOverlayLinesG.firstChild);
   freeDraggingIndex = -1;
   freePointerActive = false;
 }
@@ -2427,7 +2888,7 @@ function setTrack(key){
     const srcTrack = TRACKS[GHOST_SOURCE_TRACK[key]];
     setGridColumns(5, srcTrack.maxNumber);
     setBaselineGame(srcTrack.game || 'loto7');
-    renderGhostView(key);
+    renderMistView(key);
     return;
   }
 
@@ -2482,32 +2943,129 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=> setTrack(btn.dataset.track));
 });
 
-// ---- Draft draws (device-local, offline-editable) ----------------------
-// A "draft" is a draw the person has typed in themselves — usually the
-// latest result, ahead of the official data.json being updated on the
-// server. It's stored only in this browser's localStorage and merged into
-// TRACKS.all/.loto6 and the baseline arrays at load time (see
-// mergeDraftIntoTracks / mergeDraftIntoBaseline, called earlier). Saving or
-// deleting a draft reloads the page so every derived value (percentile
-// baselines, ghost source data, etc.) recomputes cleanly from scratch —
-// simpler and safer than patching a dozen derived arrays in place.
+// ---- Draft draws & predictions (device-local, offline-editable) -------
+// Two kinds of drafts, both stored only in this browser's localStorage,
+// never sent anywhere:
+//   - "result" drafts: an actual draw result, entered ahead of data.json
+//     being updated on the server. Merged into TRACKS.all/.loto6 and the
+//     baseline arrays (see mergeDraftIntoTracks / mergeDraftIntoBaseline,
+//     called earlier).
+//   - "prediction" drafts: a predicted set of numbers for an upcoming draw,
+//     saved before the result is known. Merged into PREDICTION_LOG (see
+//     mergeDraftPredictions, called right after PREDICTION_LOG is built) —
+//     once a result draft (or an official data.json update) supplies the
+//     matching 回号, the prediction log automatically pairs them up.
+// Saving or deleting any draft reloads the page so every derived value
+// (percentile baselines, ghost source data, prediction-log pairing) recomputes
+// cleanly from scratch — simpler and safer than patching a dozen derived
+// arrays in place.
+
+let draftMode = 'result'; // 'result' | 'prediction'
+
 document.getElementById('draftToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('exportPanel').style.display = 'none';
   const panel = document.getElementById('draftPanel');
   const open = panel.style.display !== 'none';
   if(open){
     panel.style.display = 'none';
   }else{
+    draftMode = 'result';
     renderDraftPanel();
     panel.style.display = 'block';
   }
 });
 
+document.getElementById('exportToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('draftPanel').style.display = 'none';
+  const panel = document.getElementById('exportPanel');
+  const open = panel.style.display !== 'none';
+  if(open){
+    panel.style.display = 'none';
+  }else{
+    renderExportPanel();
+    panel.style.display = 'block';
+  }
+});
+
+// ---- shared helpers ----
+
+function nextDrawNo(game){
+  const track = game === 'loto6' ? TRACKS.loto6 : TRACKS.all;
+  const maxNo = track.data.reduce((m,d)=>Math.max(m, d.no), 0);
+  return maxNo + 1;
+}
+
+function nextPredictionNo(game){
+  const officialMax = (GG_DATA.predictionLog[game]||[]).reduce((m,e)=>Math.max(m, e.no), 0);
+  const draftMax = (loadDraftPredictions()[game]||[]).reduce((m,e)=>Math.max(m, e.no), 0);
+  const drawMax = nextDrawNo(game) - 1;
+  return Math.max(officialMax, draftMax, drawMax) + 1;
+}
+
+function buildNoOptions(startNo, count){
+  const opts = [];
+  for(let i=0;i<count;i++) opts.push(startNo+i);
+  return opts;
+}
+
+// Tap-to-toggle number grid, matching the app's own visual language.
+// `capCount` limits how many can be selected at once (extra taps past the
+// cap are ignored) — pass the exact required count for "main"/"predicted"
+// numbers, or a looser ceiling for optional fields like bonus numbers.
+function buildNumberPicker(container, maxNumber, selected, capCount, onChange){
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'num-picker';
+  for(let n=1;n<=maxNumber;n++){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'num-picker-btn' + (selected.has(n) ? ' selected' : '');
+    btn.textContent = String(n).padStart(2,'0');
+    btn.addEventListener('click', ()=>{
+      if(selected.has(n)){
+        selected.delete(n);
+      }else{
+        if(capCount && selected.size >= capCount) return;
+        selected.add(n);
+      }
+      buildNumberPicker(container, maxNumber, selected, capCount, onChange);
+      onChange(selected);
+    });
+    grid.appendChild(btn);
+  }
+  container.appendChild(grid);
+  const count = document.createElement('div');
+  count.className = 'num-picker-count';
+  count.textContent = capCount ? `${selected.size} / ${capCount} 選択中` : `${selected.size} 選択中`;
+  container.appendChild(count);
+}
+
+// ---- draft panel (result / prediction, tabbed) ----
+
 function renderDraftPanel(){
   const panel = document.getElementById('draftPanel');
-  const drafts = loadDrafts();
-
   panel.innerHTML = `
-    <div class="draft-note">この端末にだけ保存され、公開サイトのdata.jsonには反映されません。公開に載せるにはこの内容を伝えてもらえれば反映します。保存すると画面が再読み込みされます。</div>
+    <div class="draft-mode-tabs">
+      <button type="button" class="draft-mode-tab${draftMode==='result'?' active':''}" data-mode="result">結果を記録</button>
+      <button type="button" class="draft-mode-tab${draftMode==='prediction'?' active':''}" data-mode="prediction">予想を記録</button>
+    </div>
+    <div id="draftFormArea"></div>
+    <div class="draft-list" id="draftList"></div>
+  `;
+  panel.querySelectorAll('.draft-mode-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      draftMode = btn.dataset.mode;
+      renderDraftPanel();
+    });
+  });
+  if(draftMode === 'result') renderResultForm(); else renderPredictionForm();
+  renderDraftList();
+}
+
+function renderResultForm(){
+  const area = document.getElementById('draftFormArea');
+  area.innerHTML = `
+    <div class="draft-note">この端末にだけ保存され、公開サイトのdata.jsonには自動反映されません。公開に載せたい時は内容を伝えてもらえれば反映します。保存すると画面が再読み込みされます。</div>
     <div class="draft-row">
       <div>
         <label>ゲーム</label>
@@ -2518,96 +3076,305 @@ function renderDraftPanel(){
       </div>
       <div>
         <label>回号</label>
-        <input id="draftNo" type="number" inputmode="numeric" placeholder="例：688">
+        <select id="draftNo"></select>
       </div>
     </div>
     <label>日付（任意）</label>
-    <input id="draftDate" type="text" placeholder="例：2026/8/7">
-    <label id="draftMainLabel">本数字（カンマ区切り・7個）</label>
-    <input id="draftMain" type="text" placeholder="例：3,9,14,20,25,31,36">
-    <label>ボーナス数字（任意・カンマ区切り）</label>
-    <input id="draftBonus" type="text" placeholder="例：5,18">
+    <input id="draftDate" type="date">
+    <label id="draftMainLabel">本数字</label>
+    <div id="draftMainPicker"></div>
+    <label>ボーナス数字（任意）</label>
+    <div id="draftBonusPicker"></div>
     <div id="draftErr" class="draft-error"></div>
     <div class="draft-actions">
       <button id="draftSaveBtn" class="draft-save-btn" type="button">保存して反映</button>
     </div>
-    <div class="draft-list" id="draftList"></div>
   `;
 
   const gameSel = document.getElementById('draftGame');
+  const noSel = document.getElementById('draftNo');
   const mainLabel = document.getElementById('draftMainLabel');
-  gameSel.addEventListener('change', ()=>{
-    mainLabel.textContent = gameSel.value === 'loto6' ? '本数字（カンマ区切り・6個）' : '本数字（カンマ区切り・7個）';
-  });
+  const mainPickerEl = document.getElementById('draftMainPicker');
+  const bonusPickerEl = document.getElementById('draftBonusPicker');
+  const mainSet = new Set();
+  const bonusSet = new Set();
+
+  function maxNumberOf(g){ return g === 'loto6' ? 43 : 37; }
+  function mainCountOf(g){ return g === 'loto6' ? 6 : 7; }
+
+  function refresh(){
+    const g = gameSel.value;
+    mainSet.clear(); bonusSet.clear();
+    mainLabel.textContent = `本数字（${mainCountOf(g)}個）`;
+    buildNumberPicker(mainPickerEl, maxNumberOf(g), mainSet, mainCountOf(g), ()=>{});
+    buildNumberPicker(bonusPickerEl, maxNumberOf(g), bonusSet, 3, ()=>{});
+    noSel.innerHTML = buildNoOptions(nextDrawNo(g), 6).map(n=>`<option value="${n}">第${n}回</option>`).join('');
+  }
+  gameSel.addEventListener('change', refresh);
+  refresh();
 
   document.getElementById('draftSaveBtn').addEventListener('click', ()=>{
     const errEl = document.getElementById('draftErr');
     errEl.textContent = '';
-    const game = gameSel.value;
-    const no = parseInt(document.getElementById('draftNo').value, 10);
-    const date = document.getElementById('draftDate').value.trim();
-    const main = parseNumList(document.getElementById('draftMain').value);
-    const bonus = parseNumList(document.getElementById('draftBonus').value);
-    const maxNumber = game === 'loto6' ? 43 : 37;
+    const g = gameSel.value;
+    const no = parseInt(noSel.value, 10);
+    const dateRaw = document.getElementById('draftDate').value; // yyyy-mm-dd from the native calendar picker
+    const date = dateRaw ? dateRaw.split('-').map(Number).join('/') : '';
+    const main = [...mainSet];
+    const bonus = [...bonusSet];
+    const maxN = maxNumberOf(g);
 
-    const errors = validateDraftEntry(game, no, main, bonus, maxNumber);
-    if(errors.length){
-      errEl.textContent = errors.join(' ');
-      return;
-    }
+    const errors = validateDraftEntry(g, no, main, bonus, maxN);
+    if(errors.length){ errEl.textContent = errors.join(' '); return; }
 
     const cur = loadDrafts();
-    cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
-    cur[game].push({no, date, main: [...main].sort((a,b)=>a-b), bonus: [...bonus].sort((a,b)=>a-b)});
+    const existing = (cur[g]||[]).find(d=>d.no === no);
+    if(existing){
+      const sameMain = JSON.stringify([...existing.main].sort((a,b)=>a-b)) === JSON.stringify([...main].sort((a,b)=>a-b));
+      const sameBonus = JSON.stringify([...(existing.bonus||[])].sort((a,b)=>a-b)) === JSON.stringify([...bonus].sort((a,b)=>a-b));
+      if(!(sameMain && sameBonus) && !confirm(`第${no}回の結果はすでに記録されています。上書きしますか？`)){
+        return;
+      }
+    }
+    cur[g] = (cur[g]||[]).filter(d=>d.no !== no);
+    const sortedMain = main.sort((a,b)=>a-b);
+    const sortedBonus = bonus.sort((a,b)=>a-b);
+    cur[g].push({no, date, main: sortedMain, bonus: sortedBonus});
     saveDrafts(cur);
+
+    if(confirm(`第${no}回はキャリーオーバー当選でしたか？\n「OK」でキャリーオーバートラックにも追加します（通常の抽選なら「キャンセル」）。`)){
+      addCarryoverDraft(g, {no, date, main: sortedMain, bonus: sortedBonus});
+    }
     location.reload();
   });
-
-  renderDraftList(drafts);
 }
 
-function renderDraftList(drafts){
+function renderPredictionForm(){
+  const area = document.getElementById('draftFormArea');
+  area.innerHTML = `
+    <div class="draft-note">結果が出る前の予想を保存できます。対応する回の結果（結果の下書き、または公式data.json更新）が登録されると、予想ログで自動的に突き合わされます。回号を選び直すと、その回の下書きがあれば読み込んで編集できます。</div>
+    <div class="draft-row">
+      <div>
+        <label>ゲーム</label>
+        <select id="predGame">
+          <option value="loto7">ロト7</option>
+          <option value="loto6">ロト6</option>
+        </select>
+      </div>
+      <div>
+        <label>回号</label>
+        <select id="predNo"></select>
+      </div>
+    </div>
+    <label id="predMainLabel">予想数字</label>
+    <div id="predPicker"></div>
+    <label>予想メモ（任意・直感の理由など）</label>
+    <input id="predNote" type="text" placeholder="例：重心を少し左に振ってみた">
+    <label>意識の配分（合計100%・1つ変えると残りが自動調整）</label>
+    <div class="draft-row">
+      <div>
+        <label>ライン</label>
+        <select id="weightLine"></select>
+      </div>
+      <div>
+        <label>重心</label>
+        <select id="weightCentroid"></select>
+      </div>
+      <div>
+        <label>数字</label>
+        <select id="weightNumber"></select>
+      </div>
+    </div>
+    <label>結果メモ（任意・答え合わせ後の気づき）</label>
+    <input id="resultNote" type="text" placeholder="例：形は近かったが重心がズレた">
+    <div id="predErr" class="draft-error"></div>
+    <div class="draft-actions">
+      <button id="predSaveBtn" class="draft-save-btn" type="button">保存して反映</button>
+    </div>
+  `;
+
+  const gameSel = document.getElementById('predGame');
+  const noSel = document.getElementById('predNo');
+  const label = document.getElementById('predMainLabel');
+  const pickerEl = document.getElementById('predPicker');
+  const noteEl = document.getElementById('predNote');
+  const resultNoteEl = document.getElementById('resultNote');
+  const weightLineSel = document.getElementById('weightLine');
+  const weightCentroidSel = document.getElementById('weightCentroid');
+  const weightNumberSel = document.getElementById('weightNumber');
+  const predSet = new Set();
+
+  function maxNumberOf(g){ return g === 'loto6' ? 43 : 37; }
+  function mainCountOf(g){ return g === 'loto6' ? 6 : 7; }
+
+  // ---- weight dropdowns: line / centroid / number, always summing to 100 ----
+  const weightOptions = [];
+  for(let v=0; v<=100; v+=10) weightOptions.push(v);
+  [weightLineSel, weightCentroidSel, weightNumberSel].forEach(sel=>{
+    sel.innerHTML = weightOptions.map(v=>`<option value="${v}">${v}%</option>`).join('');
+  });
+
+  const DEFAULT_WEIGHTS = {line:40, centroid:30, number:30};
+  let weights = {...DEFAULT_WEIGHTS};
+
+  function applyWeightsToSelects(){
+    weightLineSel.value = String(weights.line);
+    weightCentroidSel.value = String(weights.centroid);
+    weightNumberSel.value = String(weights.number);
+  }
+
+  // Changing one field re-splits the other two so the total stays exactly
+  // 100%, preserving their existing ratio to each other (or splitting evenly
+  // if both were 0).
+  function rebalanceWeights(changedKey, newVal){
+    newVal = Math.max(0, Math.min(100, newVal));
+    const keys = ['line','centroid','number'];
+    const others = keys.filter(k=>k!==changedKey);
+    const remaining = 100 - newVal;
+    const oldOtherSum = weights[others[0]] + weights[others[1]];
+    let a;
+    if(oldOtherSum === 0){
+      a = Math.round((remaining/2)/10)*10;
+    }else{
+      a = Math.round((weights[others[0]]/oldOtherSum)*remaining/10)*10;
+    }
+    a = Math.max(0, Math.min(remaining, a));
+    const b = remaining - a;
+    weights = {...weights, [changedKey]: newVal, [others[0]]: a, [others[1]]: b};
+    applyWeightsToSelects();
+  }
+
+  weightLineSel.addEventListener('change', ()=> rebalanceWeights('line', Number(weightLineSel.value)));
+  weightCentroidSel.addEventListener('change', ()=> rebalanceWeights('centroid', Number(weightCentroidSel.value)));
+  weightNumberSel.addEventListener('change', ()=> rebalanceWeights('number', Number(weightNumberSel.value)));
+
+  function existingFor(g, no){
+    return (loadDraftPredictions()[g]||[]).find(d=>d.no === no);
+  }
+
+  function loadIntoForm(g, no){
+    const existing = existingFor(g, no);
+    predSet.clear();
+    (existing ? existing.predicted : []).forEach(n=>predSet.add(n));
+    buildNumberPicker(pickerEl, maxNumberOf(g), predSet, mainCountOf(g), ()=>{});
+    noteEl.value = existing && existing.predictNote ? existing.predictNote : '';
+    resultNoteEl.value = existing && existing.resultNote ? existing.resultNote : '';
+    weights = existing && existing.weights ? {...existing.weights} : {...DEFAULT_WEIGHTS};
+    applyWeightsToSelects();
+  }
+
+  function refreshNoOptions(g){
+    const upcoming = buildNoOptions(nextPredictionNo(g), 6);
+    const existingNos = (loadDraftPredictions()[g]||[]).map(d=>d.no);
+    const allNos = [...new Set([...existingNos, ...upcoming])].sort((a,b)=>a-b);
+    noSel.innerHTML = allNos.map(n=>{
+      const tag = existingNos.includes(n) ? '（下書きあり）' : '';
+      return `<option value="${n}">第${n}回${tag}</option>`;
+    }).join('');
+  }
+
+  function refresh(){
+    const g = gameSel.value;
+    label.textContent = `予想数字（${mainCountOf(g)}個）`;
+    refreshNoOptions(g);
+    const defaultNo = nextPredictionNo(g);
+    if([...noSel.options].some(o=>o.value === String(defaultNo))) noSel.value = String(defaultNo);
+    loadIntoForm(g, parseInt(noSel.value, 10));
+  }
+  gameSel.addEventListener('change', refresh);
+  noSel.addEventListener('change', ()=> loadIntoForm(gameSel.value, parseInt(noSel.value, 10)));
+  refresh();
+
+  document.getElementById('predSaveBtn').addEventListener('click', ()=>{
+    const errEl = document.getElementById('predErr');
+    errEl.textContent = '';
+    const g = gameSel.value;
+    const no = parseInt(noSel.value, 10);
+    const predicted = [...predSet];
+    const predictNote = noteEl.value.trim();
+    const resultNote = resultNoteEl.value.trim();
+    const savedWeights = {...weights};
+    const maxN = maxNumberOf(g);
+    const errors = validateDraftEntry(g, no, predicted, [], maxN);
+    if(errors.length){ errEl.textContent = errors.join(' '); return; }
+
+    const cur = loadDraftPredictions();
+    const existing = (cur[g]||[]).find(d=>d.no === no);
+    if(existing){
+      const samePredicted = JSON.stringify([...existing.predicted].sort((a,b)=>a-b)) === JSON.stringify([...predicted].sort((a,b)=>a-b));
+      const sameNotes = (existing.predictNote||'') === predictNote && (existing.resultNote||'') === resultNote;
+      const sameWeights = existing.weights && existing.weights.line === savedWeights.line && existing.weights.centroid === savedWeights.centroid && existing.weights.number === savedWeights.number;
+      if(!(samePredicted && sameNotes && sameWeights) && !confirm(`第${no}回の予想はすでに記録されています。上書きしますか？`)){
+        return;
+      }
+    }
+    cur[g] = (cur[g]||[]).filter(d=>d.no !== no);
+    cur[g].push({no, predicted: predicted.sort((a,b)=>a-b), predictNote, resultNote, weights: savedWeights});
+    saveDraftPredictions(cur);
+    location.reload();
+  });
+}
+
+function renderDraftList(){
   const listEl = document.getElementById('draftList');
+  const drafts = loadDrafts();
+  const preds = loadDraftPredictions();
+  const carry = loadCarryoverDrafts();
   const items = [
-    ...drafts.loto7.map(d=>({...d, game:'loto7', gameLabel:'ロト7'})),
-    ...drafts.loto6.map(d=>({...d, game:'loto6', gameLabel:'ロト6'})),
+    ...drafts.loto7.map(d=>({...d, game:'loto7', gameLabel:'ロト7', kind:'result'})),
+    ...drafts.loto6.map(d=>({...d, game:'loto6', gameLabel:'ロト6', kind:'result'})),
+    ...preds.loto7.map(d=>({...d, game:'loto7', gameLabel:'ロト7', kind:'prediction'})),
+    ...preds.loto6.map(d=>({...d, game:'loto6', gameLabel:'ロト6', kind:'prediction'})),
+    ...carry.loto7.map(d=>({...d, game:'loto7', gameLabel:'ロト7', kind:'carryover'})),
+    ...carry.loto6.map(d=>({...d, game:'loto6', gameLabel:'ロト6', kind:'carryover'})),
   ];
   if(!items.length){
     listEl.innerHTML = '<div class="draft-note">保存済みの下書きはありません。</div>';
     return;
   }
-  listEl.innerHTML = items.map(d=>
-    `<div class="draft-list-item">
-      <span>[${d.gameLabel}] 第${d.no}回 — ${d.main.join(',')}${d.bonus && d.bonus.length ? ' / B:' + d.bonus.join(',') : ''}</span>
-      <button class="draft-list-del" type="button" data-game="${d.game}" data-no="${d.no}">削除</button>
-    </div>`
-  ).join('');
+  const kindLabel = {result:'結果', prediction:'予想', carryover:'CO当選'};
+  listEl.innerHTML = items.map(d=>{
+    const tag = kindLabel[d.kind];
+    const nums = d.kind === 'prediction' ? d.predicted : d.main;
+    const bonusTxt = d.kind !== 'prediction' && d.bonus && d.bonus.length ? ' / B:' + d.bonus.join(',') : '';
+    return `<div class="draft-list-item">
+      <span>[${d.gameLabel}/${tag}] 第${d.no}回 — ${nums.join(',')}${bonusTxt}</span>
+      <button class="draft-list-del" type="button" data-kind="${d.kind}" data-game="${d.game}" data-no="${d.no}">削除</button>
+    </div>`;
+  }).join('');
   listEl.querySelectorAll('.draft-list-del').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      const cur = loadDrafts();
-      const game = btn.dataset.game;
-      const no = Number(btn.dataset.no);
-      cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
-      saveDrafts(cur);
+      const kind = btn.dataset.kind, game = btn.dataset.game, no = Number(btn.dataset.no);
+      if(kind === 'result'){
+        const cur = loadDrafts();
+        cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
+        saveDrafts(cur);
+      }else if(kind === 'prediction'){
+        const cur = loadDraftPredictions();
+        cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
+        saveDraftPredictions(cur);
+      }else{
+        const cur = loadCarryoverDrafts();
+        cur[game] = (cur[game]||[]).filter(d=>d.no !== no);
+        saveCarryoverDrafts(cur);
+      }
       location.reload();
     });
   });
 }
 
-function parseNumList(str){
-  return (str||'').split(/[,，\s]+/).map(s=>s.trim()).filter(s=>s!=='').map(Number);
-}
-
 function validateDraftEntry(game, no, main, bonus, maxNumber){
   const errors = [];
-  if(!Number.isInteger(no) || no <= 0) errors.push('回号は正の整数で入力してください。');
+  if(!Number.isInteger(no) || no <= 0) errors.push('回号を選択してください。');
   const expectedMainCount = game === 'loto6' ? 6 : 7;
-  if(main.length !== expectedMainCount) errors.push(`本数字は${expectedMainCount}個必要です（現在${main.length}個）。`);
-  if(main.some(n=>!Number.isInteger(n) || n<1 || n>maxNumber)) errors.push(`本数字は1〜${maxNumber}の整数で入力してください。`);
-  if(new Set(main).size !== main.length) errors.push('本数字が重複しています。');
-  if(bonus.some(n=>!Number.isInteger(n) || n<1 || n>maxNumber)) errors.push(`ボーナス数字は1〜${maxNumber}の整数で入力してください。`);
+  if(main.length !== expectedMainCount) errors.push(`数字は${expectedMainCount}個選んでください（現在${main.length}個）。`);
+  if(main.some(n=>!Number.isInteger(n) || n<1 || n>maxNumber)) errors.push(`数字は1〜${maxNumber}の範囲で選んでください。`);
+  if(new Set(main).size !== main.length) errors.push('数字が重複しています。');
+  if(bonus.some(n=>!Number.isInteger(n) || n<1 || n>maxNumber)) errors.push(`ボーナス数字は1〜${maxNumber}の範囲で選んでください。`);
   return errors;
 }
+
+// ---- storage: result drafts ----
 
 function loadDrafts(){
   try{
@@ -2654,6 +3421,169 @@ function mergeDraftIntoBaseline(baselineArr, game){
     if(!baselineArr.some(x=>x.no === d.no)){
       baselineArr.push({no:d.no, main:d.main});
     }
+  });
+}
+
+// ---- carryover drafts: a result draft the person has flagged (via the
+// confirm prompt in renderResultForm's save handler) as a carryover win.
+// Stored separately from ordinary result drafts and merged into the
+// carryover tracks specifically, since キャリーオーバー当選 is a curated
+// subset of draws, not every draw.
+function loadCarryoverDrafts(){
+  try{
+    const raw = localStorage.getItem(DRAFT_CARRYOVER_KEY);
+    if(!raw) return {loto7:[], loto6:[]};
+    const parsed = JSON.parse(raw);
+    return {loto7: parsed.loto7 || [], loto6: parsed.loto6 || []};
+  }catch(e){
+    return {loto7:[], loto6:[]};
+  }
+}
+
+function saveCarryoverDrafts(drafts){
+  try{
+    localStorage.setItem(DRAFT_CARRYOVER_KEY, JSON.stringify(drafts));
+  }catch(e){
+    console.warn('[GhostGrid] failed to save carryover draft to localStorage', e);
+  }
+}
+
+function addCarryoverDraft(game, entry){
+  const cur = loadCarryoverDrafts();
+  cur[game] = (cur[game]||[]).filter(d=>d.no !== entry.no);
+  cur[game].push(entry);
+  saveCarryoverDrafts(cur);
+}
+
+function mergeDraftIntoCarryoverTracks(tracks){
+  const drafts = loadCarryoverDrafts();
+  if(drafts.loto7 && drafts.loto7.length){
+    drafts.loto7.forEach(d=>{
+      if(!tracks.carryover.data.some(x=>x.no === d.no)){
+        tracks.carryover.data.push({no:d.no, date:d.date||'', main:d.main, bonus:d.bonus||[], draft:true});
+      }
+    });
+    tracks.carryover.data.sort((a,b)=>a.no-b.no);
+  }
+  if(drafts.loto6 && drafts.loto6.length){
+    drafts.loto6.forEach(d=>{
+      if(!tracks.loto6carryover.data.some(x=>x.no === d.no)){
+        tracks.loto6carryover.data.push({no:d.no, date:d.date||'', main:d.main, bonus:d.bonus||[], draft:true});
+      }
+    });
+    tracks.loto6carryover.data.sort((a,b)=>a.no-b.no);
+  }
+}
+
+// ---- storage: prediction drafts ----
+
+function loadDraftPredictions(){
+  try{
+    const raw = localStorage.getItem(DRAFT_PREDICTION_KEY);
+    if(!raw) return {loto7:[], loto6:[]};
+    const parsed = JSON.parse(raw);
+    return {loto7: parsed.loto7 || [], loto6: parsed.loto6 || []};
+  }catch(e){
+    return {loto7:[], loto6:[]};
+  }
+}
+
+function saveDraftPredictions(preds){
+  try{
+    localStorage.setItem(DRAFT_PREDICTION_KEY, JSON.stringify(preds));
+  }catch(e){
+    console.warn('[GhostGrid] failed to save draft prediction to localStorage', e);
+  }
+}
+
+// Pairs each device-local predicted draw with its actual result (already
+// merged into `tracks` by mergeDraftIntoTracks, whether that result came
+// from data.json or from a result draft) — or leaves it as "結果待ち" if the
+// draw hasn't happened yet. Skips any 回号 that already has an official
+// PREDICTION_LOG entry, since that's the authoritative record.
+function mergeDraftPredictions(predictionLog, tracks){
+  ['loto7','loto6'].forEach(game=>{
+    const draftPreds = loadDraftPredictions()[game] || [];
+    if(!draftPreds.length) return;
+    predictionLog[game] = predictionLog[game] || [];
+    const officialNos = new Set(predictionLog[game].map(e=>e.no));
+    const track = game === 'loto6' ? tracks.loto6 : tracks.all;
+    const maxNumber = game === 'loto6' ? 43 : 37;
+    draftPreds.forEach(dp=>{
+      if(officialNos.has(dp.no)) return;
+      const actualEntry = track.data.find(d=>d.no === dp.no);
+      const prevEntry = track.data.find(d=>d.no === dp.no - 1);
+      predictionLog[game].push({
+        no: dp.no,
+        predicted: dp.predicted,
+        actual: actualEntry ? actualEntry.main : null,
+        previous: prevEntry ? prevEntry.main : null,
+        predictNote: dp.predictNote || '',
+        resultNote: dp.resultNote || '',
+        weights: dp.weights || null,
+        maxNumber,
+        draft: true
+      });
+    });
+    predictionLog[game].sort((a,b)=>a.no-b.no);
+  });
+}
+
+// ---- export: prediction log as copyable JSON, for handing to an AI ----
+
+function buildExportData(){
+  const result = { generatedAt: new Date().toISOString(), predictionLog: {} };
+  ['loto7','loto6'].forEach(game=>{
+    const entries = (PREDICTION_LOG[game]||[]).map(e=>{
+      const resolved = !!e.actual;
+      const hitNumbers = resolved ? e.predicted.filter(n=>e.actual.includes(n)) : null;
+      const missedPredicted = resolved ? e.predicted.filter(n=>!e.actual.includes(n)) : null;
+      const unexpectedActual = resolved ? e.actual.filter(n=>!e.predicted.includes(n)) : null;
+      return {
+        no: e.no,
+        predicted: e.predicted,
+        actual: e.actual || null,
+        resolved,
+        hitCount: resolved ? hitNumbers.length : null,
+        hitNumbers,
+        missedPredicted,
+        unexpectedActual,
+        predictNote: e.predictNote || null,
+        resultNote: e.resultNote || null,
+        weights: e.weights || null,
+        source: e.draft ? 'draft（この端末のみ）' : '公式'
+      };
+    });
+    result.predictionLog[game] = entries;
+  });
+  return result;
+}
+
+function renderExportPanel(){
+  const panel = document.getElementById('exportPanel');
+  const json = JSON.stringify(buildExportData(), null, 2);
+  panel.innerHTML = `
+    <div class="draft-note">予想ログ（予想 vs 結果）を中心にしたデータです。AIに分析してもらう時はこの内容をコピーして貼り付けてください。</div>
+    <textarea class="export-textarea" id="exportTextarea" readonly></textarea>
+    <div class="draft-actions">
+      <button id="exportCopyBtn" class="draft-save-btn" type="button">コピー</button>
+      <span id="exportCopyStatus" class="draft-note" style="margin:0;"></span>
+    </div>
+  `;
+  document.getElementById('exportTextarea').value = json;
+  document.getElementById('exportCopyBtn').addEventListener('click', async ()=>{
+    const ta = document.getElementById('exportTextarea');
+    const status = document.getElementById('exportCopyStatus');
+    try{
+      await navigator.clipboard.writeText(json);
+    }catch(e){
+      ta.removeAttribute('readonly');
+      ta.select();
+      try{ document.execCommand('copy'); }catch(e2){}
+      ta.setAttribute('readonly','readonly');
+    }
+    status.textContent = 'コピーしました';
+    setTimeout(()=>{ status.textContent=''; }, 2500);
   });
 }
 
