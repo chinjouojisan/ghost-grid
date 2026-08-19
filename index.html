@@ -316,6 +316,69 @@
   .overlay-toggle-btn.sparse.active{ background:rgba(182,245,198,0.15); border-color: #B6F5C6; }
   .overlay-toggle-btn.co{ color:#F5E48C; }
   .overlay-toggle-btn.co.active{ background:rgba(245,228,140,0.15); border-color:#F5E48C; }
+  .free-pattern-selector{
+    display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+    margin-top:10px; padding-top:10px;
+    border-top:1px dashed rgba(244,241,222,0.25);
+  }
+  .pattern-btn{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--grid-line);
+    color: var(--text-dim);
+    width:26px; height:26px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:11px;
+    line-height:1;
+    display:inline-flex; align-items:center; justify-content:center;
+    position:relative;
+    padding:0;
+  }
+  .pattern-btn.wide{
+    width:auto; height:auto; border-radius:999px; padding:6px 12px;
+  }
+  .pattern-btn:hover{ color: var(--text); border-color: var(--cyan); }
+  .pattern-btn.active{
+    border-color: var(--cyan); color: var(--cyan); font-weight:700;
+    background: rgba(111,245,255,0.14);
+  }
+  .pattern-btn.touched::after{
+    content:''; position:absolute; top:-2px; right:-2px;
+    width:6px; height:6px; border-radius:50%;
+    background: var(--magenta);
+  }
+  .pattern-btn.wide.active{ color:#1a0a12; background: var(--cyan); }
+  .free-pattern-reset-btn:disabled{ opacity:0.35; cursor:default; }
+  .reflect-toggle-btn{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--grid-line);
+    color: var(--text-dim);
+    width:26px; height:26px;
+    border-radius:50%;
+    cursor:pointer;
+    font-size:11px;
+    line-height:1;
+    display:inline-flex; align-items:center; justify-content:center;
+    padding:0;
+  }
+  .reflect-toggle-btn:hover{ color: var(--text); border-color: var(--magenta); }
+  .reflect-toggle-btn.active{
+    border-color: var(--magenta); color:#1a0a12; font-weight:700;
+    background: var(--magenta);
+  }
+  .reflect-clear-btn{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--grid-line);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .reflect-clear-btn:hover{ color: var(--text); border-color: var(--cyan); }
   .mist-controls{
     display:flex; flex-wrap:wrap; gap:14px;
     margin-top:12px; padding-top:10px;
@@ -583,6 +646,7 @@
           <div class="track-tabs">
             <button class="tab-btn active" data-track="allTrail">全パターン</button>
             <button class="tab-btn" data-track="freeLoto7">自由配置</button>
+            <button class="tab-btn" data-track="avgLoto7">アベレージ</button>
             <button class="tab-btn" data-track="predictionLog7">予想ログ</button>
             <button class="tab-btn" data-track="ghost">予想ゴースト</button>
             <button class="tab-btn" data-track="carryover">キャリーオーバー当選</button>
@@ -594,6 +658,7 @@
           <div class="track-tabs">
             <button class="tab-btn" data-track="loto6Trail">全パターン</button>
             <button class="tab-btn" data-track="freeLoto6">自由配置</button>
+            <button class="tab-btn" data-track="avgLoto6">アベレージ</button>
             <button class="tab-btn" data-track="predictionLog6">予想ログ</button>
             <button class="tab-btn" data-track="ghostLoto6">予想ゴースト</button>
             <button class="tab-btn" data-track="loto6carryover">キャリーオーバー当選</button>
@@ -608,9 +673,15 @@
         <div id="exportPanel" class="draft-panel" style="display:none;"></div>
       </div>
       <div id="freeBanner" class="ghost-banner" style="display:none;">
-        各点を自由にドラッグできます。線は自動でついてきます。指を離すと、一番近いマスの中心にスナップします（蠢きはありません・当選数字の予測ではありません）。
-        <button id="freeResetBtn" style="margin-left:8px;">元の並びに戻す</button>
+        各点を自由にドラッグできます。線は自動でついてきます。指を離すと、一番近いマスの中心にスナップします（蠢きはありません・当選数字の予測ではありません）。「自由配置」では予想パターンを10個まで保持でき、右上の丸ボタンで切り替えられます（この端末に保存され、新しい抽選結果が出てもリセットするまで維持されます）。
+        <button id="freeResetBtn" class="free-pattern-reset-btn" style="margin-left:8px;">元の並びに戻す</button>
+        <div id="freePatternSelector" style="display:none;"></div>
         <div id="freeOverlayControls"></div>
+      </div>
+      <div id="avgBanner" class="ghost-banner" style="display:none;">
+        「自由配置」で作った10パターンのうち、下でチェックしたものだけを反映して折衷案を自動生成します。ここでは直接ドラッグはできません。チェックしていないパターンは計算に含まれず、1つもチェックしなければ当選ラインがそのまま表示されます。チェックしたパターンが未編集（当選ラインのまま）の場合は、当選ラインの値として計算に参加します。
+        <div id="avgModeControls" class="free-pattern-selector"></div>
+        <div id="avgReflectControls" class="free-pattern-selector"></div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -2567,12 +2638,151 @@ let freeDraggingIndex = -1;
 let freeDragStart = null;
 let freeDragStartPt = null;
 let freePointerActive = false;
+let freeReadOnly = false;        // true while viewing an auto-generated (avg/majority) pattern
+let freeActiveManualIndex = -1;  // 0-9 when a manual pattern is being edited, else -1
+
+// --- Multi-pattern support (自由配置 only: freeLoto7 / freeLoto6) ---------
+// Up to 10 独立した予想パターンを、この端末の localStorage に保存する。
+// 各パターンは「未編集（当選ラインをそのまま反映・当選番号更新に自動追従）」
+// か「編集済み（ユーザーがドラッグした数字を保持・リセットするまで固定）」の
+// いずれか。加えて、10パターンから自動生成される「平均」「多数決」の2つの
+// 折衷パターンを閲覧専用で提供する（ドラッグ不可・保存不要・常に最新計算）。
+const FREE_PATTERN_KEYS = ['freeLoto7', 'freeLoto6'];
+// アベレージタブ（独立タブ）→ 参照元の自由配置キー
+const AVG_TABS = { avgLoto7: 'freeLoto7', avgLoto6: 'freeLoto6' };
+const FREE_PATTERN_COUNT = 10;
+const FREE_PATTERNS_STORE_KEY = 'ggFreePatterns_v1';
+
+function loadFreePatternStore(){
+  try{
+    const raw = localStorage.getItem(FREE_PATTERNS_STORE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){
+    console.warn('[GhostGrid] failed to load free-pattern store', e);
+    return {};
+  }
+}
+function saveFreePatternStore(){
+  try{
+    localStorage.setItem(FREE_PATTERNS_STORE_KEY, JSON.stringify(freePatternData));
+  }catch(e){
+    console.warn('[GhostGrid] failed to save free-pattern store', e);
+  }
+}
+let freePatternData = loadFreePatternStore();
+
+function ensureFreePatternState(key){
+  if(!freePatternData[key]){
+    freePatternData[key] = {
+      active: 0, // 0-9 の手動パターン番号（自由配置タブでの表示切替用）
+      touched: new Array(FREE_PATTERN_COUNT).fill(false),
+      values: new Array(FREE_PATTERN_COUNT).fill(null),
+      avgMode: 'avg',    // 'avg' | 'majority' — アベレージタブでのモード
+      avgReflect: new Array(FREE_PATTERN_COUNT).fill(false) // アベレージタブで計算に反映するパターン
+    };
+  } else {
+    // 旧バージョン（avg/majorityボタンが自由配置タブ内にあった頃）のデータ移行
+    const st = freePatternData[key];
+    if(typeof st.active !== 'number') st.active = 0;
+    if(!st.avgMode) st.avgMode = 'avg';
+    if(!st.avgReflect) st.avgReflect = new Array(FREE_PATTERN_COUNT).fill(false);
+  }
+  return freePatternData[key];
+}
+
+function latestValuesFor(key){
+  const srcKey = FREE_SOURCE_TRACK[key];
+  const src = TRACKS[srcKey].data;
+  return [...src[src.length-1].main].sort((a,b)=>a-b);
+}
+
+// touched でなければ最新の当選ラインをそのまま返す（当選番号更新に自動追従）
+function currentPatternValues(key, idx){
+  const st = ensureFreePatternState(key);
+  return st.touched[idx] ? st.values[idx].slice() : latestValuesFor(key);
+}
+
+// アベレージタブ用：st.avgReflect でチェックされたパターンだけを対象に、
+// 平均 or 多数決の折衷パターンを計算する。1つもチェックがなければ当選
+// ラインをそのまま返す。
+function computeBlendPattern(key, mode){
+  const st = ensureFreePatternState(key);
+  const latest = latestValuesFor(key);
+  const maxN = TRACKS[FREE_SOURCE_TRACK[key]].maxNumber;
+  const K = latest.length;
+
+  const included = [];
+  for(let p=0;p<FREE_PATTERN_COUNT;p++){
+    if(st.avgReflect[p]) included.push(p);
+  }
+  if(included.length === 0){
+    return latest.slice();
+  }
+
+  const valuesOf = (p)=> st.touched[p] ? st.values[p] : latest;
+
+  // 枠（1〜K番目の点）ごとに、反映対象パターンの数字を平均し繰り上げ
+  function averageOf(patternIndices){
+    const result = [];
+    for(let i=0;i<K;i++){
+      let sum = 0;
+      patternIndices.forEach(p=> sum += valuesOf(p)[i]);
+      result.push(Math.max(1, Math.min(maxN, Math.ceil(sum / patternIndices.length))));
+    }
+    return result;
+  }
+
+  if(mode === 'avg'){
+    return averageOf(included);
+  }
+
+  // 多数決：反映対象パターンの数字を集計し、得票の多い順にK個採用。
+  // カットライン上で同着が出た場合は、平均パターン（同じ反映対象で計算）の
+  // 数字に近い方を優先する。
+  const counts = new Array(maxN+1).fill(0);
+  included.forEach(p=>{
+    valuesOf(p).forEach(n=>{ if(n>=1 && n<=maxN) counts[n]++; });
+  });
+  const avgPattern = averageOf(included);
+
+  const candidates = [];
+  for(let n=1;n<=maxN;n++){
+    if(counts[n] > 0) candidates.push({n, c:counts[n]});
+  }
+  candidates.sort((a,b)=> b.c - a.c);
+
+  const selected = [];
+  let i = 0;
+  while(selected.length < K && i < candidates.length){
+    const currentCount = candidates[i].c;
+    const group = [];
+    while(i < candidates.length && candidates[i].c === currentCount){
+      group.push(candidates[i]);
+      i++;
+    }
+    const remaining = K - selected.length;
+    if(group.length <= remaining){
+      group.forEach(g=> selected.push(g.n));
+    } else {
+      group.sort((a,b)=>{
+        const da = Math.min(...avgPattern.map(v=>Math.abs(v-a.n)));
+        const db = Math.min(...avgPattern.map(v=>Math.abs(v-b.n)));
+        if(da !== db) return da-db;
+        return a.n - b.n; // 距離も同着なら数字の小さい方
+      });
+      selected.push(...group.slice(0, remaining).map(g=>g.n));
+    }
+  }
+  selected.sort((a,b)=>a-b);
+  return selected;
+}
 
 function snapToGridCenter(x, y){
   const col = Math.max(0, Math.min(GRID_COLS-1, Math.round((x-OX-CELL/2)/CELL)));
   const row = Math.max(0, Math.min(GRID_ROWS-1, Math.round((y-OY-CELL/2)/CELL)));
   return [OX+col*CELL+CELL/2, OY+row*CELL+CELL/2];
 }
+
 
 function renderFreeFrame(){
   centroidCore.style.opacity = '';
@@ -2618,6 +2828,18 @@ function renderFreeFrame(){
 }
 
 function renderFreeView(key){
+  freeReadOnly = false;
+  freeActiveManualIndex = -1;
+  if(FREE_PATTERN_KEYS.includes(key)){
+    renderFreeViewMulti(key);
+  } else {
+    renderFreeViewSingle(key);
+  }
+}
+
+// Legacy single-pattern behaviour — still used for freeCarry7 / freeCarry6
+// (CO配置), unaffected by the multi-pattern feature.
+function renderFreeViewSingle(key){
   const srcKey = FREE_SOURCE_TRACK[key];
   const src = TRACKS[srcKey].data;
 
@@ -2651,6 +2873,7 @@ function renderFreeView(key){
 
     hit.addEventListener('pointerdown', (evt)=>{
       if(!trackKey.startsWith('free')) return;
+      if(freeReadOnly) return;
       evt.preventDefault();
       freePointerActive = true;
       freeDraggingIndex = i;
@@ -2662,7 +2885,184 @@ function renderFreeView(key){
   });
 
   renderFreeFrame();
+  renderFreePatternSelector(key); // hides itself for non-multi-pattern keys
   renderFreeOverlayControls(key);
+}
+
+// Multi-pattern behaviour — freeLoto7 / freeLoto6 (自由配置). Up to 10 stored
+// patterns plus 2 read-only auto-generated ones (average / majority-vote).
+// The faint reference line always shows the CURRENT latest winning line
+// (not frozen at first open), since only the person's own edited patterns
+// should stay fixed until reset.
+function renderFreeViewMulti(key){
+  const st = ensureFreePatternState(key);
+  const latest = latestValuesFor(key);
+
+  const refPts = latest.map(gridXY);
+  while(freeReferenceG.firstChild) freeReferenceG.removeChild(freeReferenceG.firstChild);
+  freeReferenceG.appendChild(el('path',{d:catmullRomPath(refPts), fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.5, opacity:0.3}));
+  refPts.forEach(([x,y])=>{
+    freeReferenceG.appendChild(el('circle',{cx:x,cy:y,r:5, fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.3, opacity:0.35}));
+  });
+  const rcx = refPts.reduce((s,p)=>s+p[0],0)/refPts.length;
+  const rcy = refPts.reduce((s,p)=>s+p[1],0)/refPts.length;
+  freeReferenceG.appendChild(el('circle',{cx:rcx,cy:rcy,r:9, fill:'none', stroke:'#FFF6D9', ['stroke-width']:1.2, opacity:0.4}));
+
+  const values = currentPatternValues(key, st.active);
+  freeReadOnly = false;
+  freeActiveManualIndex = st.active;
+
+  freeBasePts = values.map(gridXY);
+  freeOriginalPts = refPts;
+
+  while(freePointsG.firstChild) freePointsG.removeChild(freePointsG.firstChild);
+  freeHandles = [];
+  freeBasePts.forEach((p, i)=>{
+    const visible = el('circle',{r:7, fill:'#FFF6D9', opacity:0.95, filter:'url(#neonGlow)'});
+    const hit = el('circle',{r:26, fill:'#FFFFFF', opacity:0.001, style:'touch-action:pinch-zoom; cursor:grab;'});
+    hit.dataset.idx = i;
+    freePointsG.appendChild(visible);
+    freePointsG.appendChild(hit);
+    freeHandles.push({visible, hit});
+
+    hit.addEventListener('pointerdown', (evt)=>{
+      if(!trackKey.startsWith('free')) return;
+      if(freeReadOnly) return;
+      evt.preventDefault();
+      freePointerActive = true;
+      freeDraggingIndex = i;
+      freeDragStart = clientToSvgPoint(evt);
+      freeDragStartPt = [...freeBasePts[i]];
+      hit.setPointerCapture(evt.pointerId);
+      hit.style.cursor = 'grabbing';
+    });
+  });
+
+  renderFreeFrame();
+  renderFreePatternSelector(key);
+  renderFreeOverlayControls(key);
+}
+
+// 1〜10の丸ボタンでパターンを切替。freeLoto7/freeLoto6以外では非表示。
+function renderFreePatternSelector(key){
+  const container = document.getElementById('freePatternSelector');
+  if(!FREE_PATTERN_KEYS.includes(key)){
+    container.style.display = 'none';
+    container.innerHTML = '';
+    const resetBtn = document.getElementById('freeResetBtn');
+    resetBtn.style.display = '';
+    resetBtn.disabled = false;
+    resetBtn.textContent = '元の並びに戻す';
+    return;
+  }
+  container.style.display = 'flex';
+  const st = ensureFreePatternState(key);
+
+  let html = '<span class="mist-control-label">パターン</span>';
+  for(let i=0;i<FREE_PATTERN_COUNT;i++){
+    const cls = ['pattern-btn'];
+    if(st.active === i) cls.push('active');
+    if(st.touched[i]) cls.push('touched');
+    html += `<button type="button" class="${cls.join(' ')}" data-pat="${i}" title="パターン${i+1}${st.touched[i]?'（編集済み）':'（未編集・当選ラインに追従）'}">${i+1}</button>`;
+  }
+  container.innerHTML = html;
+
+  container.querySelectorAll('.pattern-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      st.active = parseInt(btn.dataset.pat, 10);
+      saveFreePatternStore();
+      renderFreeViewMulti(key);
+    });
+  });
+
+  const resetBtn = document.getElementById('freeResetBtn');
+  resetBtn.style.display = '';
+  const isTouched = st.touched[st.active];
+  resetBtn.disabled = !isTouched;
+  resetBtn.textContent = isTouched
+    ? `パターン${st.active+1}を当選ラインに戻す`
+    : `パターン${st.active+1}（未編集・当選ラインに追従中）`;
+}
+
+// ---- アベレージタブ（独立セクション）：自由配置の10パターンのうち、
+// チェックしたものだけを反映して「平均」または「多数決」の折衷パターンを
+// 表示する。閲覧専用（ドラッグ不可）。
+function renderAvgView(key){
+  const freeKey = AVG_TABS[key];
+  const st = ensureFreePatternState(freeKey);
+  const latest = latestValuesFor(freeKey);
+
+  // 参考ライン＝常に最新の当選ライン
+  const refPts = latest.map(gridXY);
+  while(freeReferenceG.firstChild) freeReferenceG.removeChild(freeReferenceG.firstChild);
+  freeReferenceG.appendChild(el('path',{d:catmullRomPath(refPts), fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.5, opacity:0.3}));
+  refPts.forEach(([x,y])=>{
+    freeReferenceG.appendChild(el('circle',{cx:x,cy:y,r:5, fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.3, opacity:0.35}));
+  });
+  const rcx = refPts.reduce((s,p)=>s+p[0],0)/refPts.length;
+  const rcy = refPts.reduce((s,p)=>s+p[1],0)/refPts.length;
+  freeReferenceG.appendChild(el('circle',{cx:rcx,cy:rcy,r:9, fill:'none', stroke:'#FFF6D9', ['stroke-width']:1.2, opacity:0.4}));
+
+  const values = computeBlendPattern(freeKey, st.avgMode);
+  freeReadOnly = true;
+  freeActiveManualIndex = -1;
+  freeBasePts = values.map(gridXY);
+  freeOriginalPts = refPts;
+
+  while(freePointsG.firstChild) freePointsG.removeChild(freePointsG.firstChild);
+  freeHandles = [];
+  freeBasePts.forEach((p)=>{
+    const visible = el('circle',{r:7, fill:'#B9C4E0', opacity:0.95, filter:'url(#neonGlow)'});
+    const hit = el('circle',{r:26, fill:'#FFFFFF', opacity:0.001});
+    freePointsG.appendChild(visible);
+    freePointsG.appendChild(hit);
+    freeHandles.push({visible, hit});
+    // 閲覧専用のため pointerdown は付けない（ドラッグ不可）
+  });
+
+  renderFreeFrame();
+  renderAvgControls(key, freeKey);
+}
+
+function renderAvgControls(key, freeKey){
+  const st = ensureFreePatternState(freeKey);
+
+  const modeContainer = document.getElementById('avgModeControls');
+  modeContainer.innerHTML = `
+    <span class="mist-control-label">モード</span>
+    <button type="button" class="pattern-btn wide${st.avgMode==='avg'?' active':''}" data-mode="avg">平均</button>
+    <button type="button" class="pattern-btn wide${st.avgMode==='majority'?' active':''}" data-mode="majority">多数決</button>
+  `;
+  modeContainer.querySelectorAll('button[data-mode]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      st.avgMode = btn.dataset.mode;
+      saveFreePatternStore();
+      renderAvgView(key);
+    });
+  });
+
+  const reflectContainer = document.getElementById('avgReflectControls');
+  let html = '<span class="mist-control-label">反映するパターン</span>';
+  for(let i=0;i<FREE_PATTERN_COUNT;i++){
+    const on = st.avgReflect[i];
+    html += `<button type="button" class="reflect-toggle-btn${on?' active':''}" data-idx="${i}" title="パターン${i+1}${st.touched[i]?'（編集済み）':'（未編集・当選ライン）'}">${i+1}</button>`;
+  }
+  html += `<button type="button" class="reflect-clear-btn" id="avgReflectClearBtn">全解除</button>`;
+  reflectContainer.innerHTML = html;
+
+  reflectContainer.querySelectorAll('.reflect-toggle-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = parseInt(btn.dataset.idx, 10);
+      st.avgReflect[idx] = !st.avgReflect[idx];
+      saveFreePatternStore();
+      renderAvgView(key);
+    });
+  });
+  document.getElementById('avgReflectClearBtn').addEventListener('click', ()=>{
+    st.avgReflect = new Array(FREE_PATTERN_COUNT).fill(false);
+    saveFreePatternStore();
+    renderAvgView(key);
+  });
 }
 
 // ---- 自由配置 reference overlays: mist / dense line / sparse line / CO
@@ -2753,11 +3153,25 @@ function endFreeDrag(){
   if(!freePointerActive) return;
   freePointerActive = false;
   if(freeDraggingIndex >= 0){
-    const [x,y] = freeBasePts[freeDraggingIndex];
-    freeBasePts[freeDraggingIndex] = snapToGridCenter(x,y);
-    freeHandles[freeDraggingIndex].hit.style.cursor = 'grab';
+    const idx = freeDraggingIndex;
+    const [x,y] = freeBasePts[idx];
+    const snapped = snapToGridCenter(x,y);
+    freeBasePts[idx] = snapped;
+    freeHandles[idx].hit.style.cursor = 'grab';
     freeDraggingIndex = -1;
     renderFreeFrame();
+
+    if(FREE_PATTERN_KEYS.includes(trackKey) && freeActiveManualIndex >= 0){
+      const st = ensureFreePatternState(trackKey);
+      const p = freeActiveManualIndex;
+      if(!st.touched[p]){
+        st.touched[p] = true;
+        st.values[p] = latestValuesFor(trackKey); // seed with pre-edit (latest) values
+      }
+      st.values[p][idx] = Math.round(inverseGridValue(snapped[0], snapped[1]));
+      saveFreePatternStore();
+      renderFreePatternSelector(trackKey); // refresh the "touched" dot / reset button label
+    }
   }
 }
 window.addEventListener('pointerup', endFreeDrag);
@@ -2772,6 +3186,16 @@ document.querySelector('.svg-wrap').addEventListener('touchmove', (evt)=>{
 }, {passive:false});
 
 document.getElementById('freeResetBtn').addEventListener('click', ()=>{
+  if(FREE_PATTERN_KEYS.includes(trackKey)){
+    const st = ensureFreePatternState(trackKey);
+    if(typeof st.active === 'number' && st.touched[st.active]){
+      st.touched[st.active] = false;
+      st.values[st.active] = null;
+      saveFreePatternStore();
+      renderFreeViewMulti(trackKey);
+    }
+    return;
+  }
   if(!freeOriginalPts) return;
   freeOriginalPts.forEach((p,i)=>{ freeBasePts[i] = [...p]; });
   renderFreeFrame();
@@ -2915,6 +3339,8 @@ function clearDynamicLayers(){
   while(freeOverlayLinesG.firstChild) freeOverlayLinesG.removeChild(freeOverlayLinesG.firstChild);
   freeDraggingIndex = -1;
   freePointerActive = false;
+  freeReadOnly = false;
+  freeActiveManualIndex = -1;
 }
 
 function setTrack(key){
@@ -2930,6 +3356,7 @@ function setTrack(key){
     while(logG.firstChild) logG.removeChild(logG.firstChild);
     document.getElementById('ghostBanner').style.display = 'none';
     document.getElementById('freeBanner').style.display = 'none';
+    document.getElementById('avgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'flex';
     document.getElementById('timelineTicks').style.display = 'flex';
     document.querySelector('.svg-wrap').style.display = 'block';
@@ -2947,6 +3374,7 @@ function setTrack(key){
     clearDynamicLayers();
     document.getElementById('ghostBanner').style.display = 'block';
     document.getElementById('freeBanner').style.display = 'none';
+    document.getElementById('avgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'none';
     document.getElementById('timelineTicks').style.display = 'none';
     const srcTrack = TRACKS[GHOST_SOURCE_TRACK[key]];
@@ -2960,6 +3388,7 @@ function setTrack(key){
     clearDynamicLayers();
     document.getElementById('ghostBanner').style.display = 'none';
     document.getElementById('freeBanner').style.display = 'block';
+    document.getElementById('avgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'none';
     document.getElementById('timelineTicks').style.display = 'none';
     const srcTrack = TRACKS[FREE_SOURCE_TRACK[key]];
@@ -2969,9 +3398,25 @@ function setTrack(key){
     return;
   }
 
+  if(key in AVG_TABS){
+    clearDynamicLayers();
+    document.getElementById('ghostBanner').style.display = 'none';
+    document.getElementById('freeBanner').style.display = 'none';
+    document.getElementById('avgBanner').style.display = 'block';
+    document.getElementById('controlsBlock').style.display = 'none';
+    document.getElementById('timelineTicks').style.display = 'none';
+    const freeKey = AVG_TABS[key];
+    const srcTrack = TRACKS[FREE_SOURCE_TRACK[freeKey]];
+    setGridColumns(5, srcTrack.maxNumber);
+    setBaselineGame(srcTrack.game || 'loto7');
+    renderAvgView(key);
+    return;
+  }
+
   clearDynamicLayers();
   document.getElementById('ghostBanner').style.display = 'none';
   document.getElementById('freeBanner').style.display = 'none';
+  document.getElementById('avgBanner').style.display = 'none';
   document.getElementById('controlsBlock').style.display = 'flex';
   document.getElementById('timelineTicks').style.display = 'flex';
   setGridColumns(5, TRACKS[key].maxNumber);
