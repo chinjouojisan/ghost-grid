@@ -379,6 +379,27 @@
     font-size: 11px;
   }
   .reflect-clear-btn:hover{ color: var(--text); border-color: var(--cyan); }
+  .blindspot-toggle-btn{
+    font-family:'Space Mono', monospace;
+    background: transparent;
+    border: 1px solid var(--grid-line);
+    color: var(--magenta);
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .blindspot-toggle-btn.active{
+    background: rgba(255,111,201,0.15);
+    border-color: var(--magenta);
+    font-weight:700;
+  }
+  .blindspot-count-label{
+    font-family:'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: 4px;
+  }
   .mist-controls{
     display:flex; flex-wrap:wrap; gap:14px;
     margin-top:12px; padding-top:10px;
@@ -682,6 +703,7 @@
         「自由配置」で作った10パターンのうち、下でチェックしたものだけを反映して折衷案を自動生成します。ここでは直接ドラッグはできません。チェックしていないパターンは計算に含まれず、1つもチェックしなければ当選ラインがそのまま表示されます。チェックしたパターンが未編集（当選ラインのまま）の場合は、当選ラインの値として計算に参加します。
         <div id="avgModeControls" class="free-pattern-selector"></div>
         <div id="avgReflectControls" class="free-pattern-selector"></div>
+        <div id="avgBlindSpotControls" class="free-pattern-selector"></div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -1135,6 +1157,12 @@ svg.appendChild(ghostRibbonG);
 svg.appendChild(centroidHalo);
 svg.appendChild(centroidCore);
 svg.appendChild(dragHandle);
+
+// アベレージタブ専用：「見落とし数字」ハイライト（グリッド上のマス目を
+// 色分け）。10パターン（未編集分は当選ラインとして計算）で一度も触れて
+// いない数字を目立たせる。トグルで表示/非表示。
+const freeBlindSpotG = el('g', {});
+svg.appendChild(freeBlindSpotG);
 
 // free-drag editor: a static faint reference of the starting shape, plus a
 // plain connecting line + one draggable handle per point
@@ -2650,6 +2678,9 @@ let freeActiveManualIndex = -1;  // 0-9 when a manual pattern is being edited, e
 const FREE_PATTERN_KEYS = ['freeLoto7', 'freeLoto6'];
 // アベレージタブ（独立タブ）→ 参照元の自由配置キー
 const AVG_TABS = { avgLoto7: 'freeLoto7', avgLoto6: 'freeLoto6' };
+// 見落とし数字ハイライトのON/OFF（セッション中のみ保持、他のオーバーレイ
+// トグル群と同じ扱い）
+const avgBlindSpotState = { avgLoto7: false, avgLoto6: false };
 const FREE_PATTERN_COUNT = 10;
 const FREE_PATTERNS_STORE_KEY = 'ggFreePatterns_v1';
 
@@ -2984,6 +3015,38 @@ function renderFreePatternSelector(key){
     : `パターン${st.active+1}（未編集・当選ラインに追従中）`;
 }
 
+// 見落とし数字ハイライト：10パターン（未編集分は当選ラインの数字として
+// 集計）で一度も使われていない数字のマスを目立たせる。
+function renderBlindSpotOverlay(freeKey, show){
+  while(freeBlindSpotG.firstChild) freeBlindSpotG.removeChild(freeBlindSpotG.firstChild);
+  if(!show) return null;
+
+  const st = ensureFreePatternState(freeKey);
+  const latest = latestValuesFor(freeKey);
+  const maxN = TRACKS[FREE_SOURCE_TRACK[freeKey]].maxNumber;
+
+  const touchedNumbers = new Set();
+  for(let p=0;p<FREE_PATTERN_COUNT;p++){
+    const vals = st.touched[p] ? st.values[p] : latest;
+    vals.forEach(n=> touchedNumbers.add(n));
+  }
+
+  let blindCount = 0;
+  for(let n=1;n<=maxN;n++){
+    const [x,y] = gridXY(n);
+    const isTouched = touchedNumbers.has(n);
+    if(!isTouched) blindCount++;
+    freeBlindSpotG.appendChild(el('rect',{
+      x:x-CELL/2+3, y:y-CELL/2+3, width:CELL-6, height:CELL-6,
+      rx:4, ry:4,
+      fill: isTouched ? 'none' : 'rgba(255,111,201,0.16)',
+      stroke: isTouched ? 'none' : 'rgba(255,111,201,0.55)',
+      ['stroke-width']: isTouched ? 0 : 1.3
+    }));
+  }
+  return { blindCount, total: maxN };
+}
+
 // ---- アベレージタブ（独立セクション）：自由配置の10パターンのうち、
 // チェックしたものだけを反映して「平均」または「多数決」の折衷パターンを
 // 表示する。閲覧専用（ドラッグ不可）。
@@ -3021,10 +3084,11 @@ function renderAvgView(key){
   });
 
   renderFreeFrame();
-  renderAvgControls(key, freeKey);
+  const blindStats = renderBlindSpotOverlay(freeKey, avgBlindSpotState[key]);
+  renderAvgControls(key, freeKey, blindStats);
 }
 
-function renderAvgControls(key, freeKey){
+function renderAvgControls(key, freeKey, blindStats){
   const st = ensureFreePatternState(freeKey);
 
   const modeContainer = document.getElementById('avgModeControls');
@@ -3061,6 +3125,19 @@ function renderAvgControls(key, freeKey){
   document.getElementById('avgReflectClearBtn').addEventListener('click', ()=>{
     st.avgReflect = new Array(FREE_PATTERN_COUNT).fill(false);
     saveFreePatternStore();
+    renderAvgView(key);
+  });
+
+  const blindContainer = document.getElementById('avgBlindSpotControls');
+  const blindOn = avgBlindSpotState[key];
+  const countText = blindStats ? `未使用 ${blindStats.blindCount} / ${blindStats.total}` : '';
+  blindContainer.innerHTML = `
+    <span class="mist-control-label">練習用</span>
+    <button type="button" class="blindspot-toggle-btn${blindOn?' active':''}" id="avgBlindSpotToggle">見落とし数字をハイライト</button>
+    <span class="blindspot-count-label">${countText}</span>
+  `;
+  document.getElementById('avgBlindSpotToggle').addEventListener('click', ()=>{
+    avgBlindSpotState[key] = !avgBlindSpotState[key];
     renderAvgView(key);
   });
 }
@@ -3337,6 +3414,7 @@ function clearDynamicLayers(){
   while(freeReferenceG.firstChild) freeReferenceG.removeChild(freeReferenceG.firstChild);
   while(freeOverlayHazeG.firstChild) freeOverlayHazeG.removeChild(freeOverlayHazeG.firstChild);
   while(freeOverlayLinesG.firstChild) freeOverlayLinesG.removeChild(freeOverlayLinesG.firstChild);
+  while(freeBlindSpotG.firstChild) freeBlindSpotG.removeChild(freeBlindSpotG.firstChild);
   freeDraggingIndex = -1;
   freePointerActive = false;
   freeReadOnly = false;
