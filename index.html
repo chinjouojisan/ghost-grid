@@ -671,6 +671,7 @@
             <button class="tab-btn" data-track="predictionLog7">予想ログ</button>
             <button class="tab-btn" data-track="ghost">予想ゴースト</button>
             <button class="tab-btn" data-track="carryover">キャリーオーバー当選</button>
+            <button class="tab-btn" data-track="avgCarryover7">アベレージ</button>
             <button class="tab-btn" data-track="freeCarry7">CO配置</button>
           </div>
         </div>
@@ -683,6 +684,7 @@
             <button class="tab-btn" data-track="predictionLog6">予想ログ</button>
             <button class="tab-btn" data-track="ghostLoto6">予想ゴースト</button>
             <button class="tab-btn" data-track="loto6carryover">キャリーオーバー当選</button>
+            <button class="tab-btn" data-track="avgCarryover6">アベレージ</button>
             <button class="tab-btn" data-track="freeCarry6">CO配置</button>
           </div>
         </div>
@@ -704,6 +706,10 @@
         <div id="avgModeControls" class="free-pattern-selector"></div>
         <div id="avgReflectControls" class="free-pattern-selector"></div>
         <div id="avgBlindSpotControls" class="free-pattern-selector"></div>
+      </div>
+      <div id="carryoverAvgBanner" class="ghost-banner" style="display:none;">
+        「キャリーオーバー当選」に貯まっている実際の当選番号のうち、直近10回分を集計して平均・多数決を自動生成します。自由配置の予想パターンとは無関係の、実データのみの折衷案です。閲覧専用（ドラッグ不可）。
+        <div id="carryoverAvgModeControls" class="free-pattern-selector"></div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -2681,6 +2687,13 @@ const AVG_TABS = { avgLoto7: 'freeLoto7', avgLoto6: 'freeLoto6' };
 // 見落とし数字ハイライトのON/OFF（セッション中のみ保持、他のオーバーレイ
 // トグル群と同じ扱い）
 const avgBlindSpotState = { avgLoto7: false, avgLoto6: false };
+
+// アベレージ（キャリーオーバー当選の実データ版）→ 参照元のTRACKSキー。
+// 自由配置の予想パターンとは無関係で、実際に貯まっている当選番号の
+// 直近10回分から平均・多数決を出す。
+const AVG_CARRYOVER_TABS = { avgCarryover7: 'carryover', avgCarryover6: 'loto6carryover' };
+const AVG_CARRYOVER_WINDOW = 10;
+const carryoverAvgState = { avgCarryover7: 'avg', avgCarryover6: 'avg' };
 const FREE_PATTERN_COUNT = 10;
 const FREE_PATTERNS_STORE_KEY = 'ggFreePatterns_v1';
 
@@ -3142,6 +3155,126 @@ function renderAvgControls(key, freeKey, blindStats){
   });
 }
 
+// ---- アベレージ（キャリーオーバー当選・実データ版）--------------------
+// 自由配置の予想パターンとは無関係。TRACKS.carryover / TRACKS.loto6carryover
+// に貯まっている実際の当選番号の直近10回分から、平均・多数決を計算する。
+
+// 枠（1〜K番目に小さい数字）ごとに、指定した当選回リスト（それぞれ昇順
+// ソート済みの数字配列）を平均し、繰り上げる。
+function averageOfSortedDraws(sortedDraws, K, maxN){
+  const result = [];
+  for(let i=0;i<K;i++){
+    let sum = 0;
+    sortedDraws.forEach(vals => sum += vals[i]);
+    result.push(Math.max(1, Math.min(maxN, Math.ceil(sum / sortedDraws.length))));
+  }
+  return result;
+}
+
+function computeCarryoverBlend(trackKey, mode){
+  const track = TRACKS[trackKey];
+  const draws = track.data.slice(-AVG_CARRYOVER_WINDOW);
+  const maxN = track.maxNumber;
+  const sortedDraws = draws.map(d => [...d.main].sort((a,b)=>a-b));
+  const K = sortedDraws[0].length;
+
+  if(mode === 'avg'){
+    return averageOfSortedDraws(sortedDraws, K, maxN);
+  }
+
+  // 多数決：直近10回分の数字を集計し、得票の多い順にK個採用。
+  // 同着時は平均パターン（同じ10回分で計算）に近い数字を優先。
+  const counts = new Array(maxN+1).fill(0);
+  sortedDraws.forEach(vals => vals.forEach(n=>{ if(n>=1 && n<=maxN) counts[n]++; }));
+  const avgPattern = averageOfSortedDraws(sortedDraws, K, maxN);
+
+  const candidates = [];
+  for(let n=1;n<=maxN;n++){
+    if(counts[n] > 0) candidates.push({n, c:counts[n]});
+  }
+  candidates.sort((a,b)=> b.c - a.c);
+
+  const selected = [];
+  let i = 0;
+  while(selected.length < K && i < candidates.length){
+    const currentCount = candidates[i].c;
+    const group = [];
+    while(i < candidates.length && candidates[i].c === currentCount){
+      group.push(candidates[i]);
+      i++;
+    }
+    const remaining = K - selected.length;
+    if(group.length <= remaining){
+      group.forEach(g=> selected.push(g.n));
+    } else {
+      group.sort((a,b)=>{
+        const da = Math.min(...avgPattern.map(v=>Math.abs(v-a.n)));
+        const db = Math.min(...avgPattern.map(v=>Math.abs(v-b.n)));
+        if(da !== db) return da-db;
+        return a.n - b.n;
+      });
+      selected.push(...group.slice(0, remaining).map(g=>g.n));
+    }
+  }
+  selected.sort((a,b)=>a-b);
+  return selected;
+}
+
+function renderCarryoverAvgView(key){
+  const trackKey = AVG_CARRYOVER_TABS[key];
+  const track = TRACKS[trackKey];
+  const draws = track.data.slice(-AVG_CARRYOVER_WINDOW);
+  const latest = [...draws[draws.length-1].main].sort((a,b)=>a-b);
+
+  // 参考ライン＝直近1回の実際の当選ライン
+  const refPts = latest.map(gridXY);
+  while(freeReferenceG.firstChild) freeReferenceG.removeChild(freeReferenceG.firstChild);
+  freeReferenceG.appendChild(el('path',{d:catmullRomPath(refPts), fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.5, opacity:0.3}));
+  refPts.forEach(([x,y])=>{
+    freeReferenceG.appendChild(el('circle',{cx:x,cy:y,r:5, fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.3, opacity:0.35}));
+  });
+  const rcx = refPts.reduce((s,p)=>s+p[0],0)/refPts.length;
+  const rcy = refPts.reduce((s,p)=>s+p[1],0)/refPts.length;
+  freeReferenceG.appendChild(el('circle',{cx:rcx,cy:rcy,r:9, fill:'none', stroke:'#FFF6D9', ['stroke-width']:1.2, opacity:0.4}));
+
+  const mode = carryoverAvgState[key];
+  const values = computeCarryoverBlend(trackKey, mode);
+  freeReadOnly = true;
+  freeActiveManualIndex = -1;
+  freeBasePts = values.map(gridXY);
+  freeOriginalPts = refPts;
+
+  while(freePointsG.firstChild) freePointsG.removeChild(freePointsG.firstChild);
+  freeHandles = [];
+  freeBasePts.forEach(()=>{
+    const visible = el('circle',{r:7, fill:'#B9C4E0', opacity:0.95, filter:'url(#neonGlow)'});
+    const hit = el('circle',{r:26, fill:'#FFFFFF', opacity:0.001});
+    freePointsG.appendChild(visible);
+    freePointsG.appendChild(hit);
+    freeHandles.push({visible, hit});
+    // 閲覧専用のため pointerdown は付けない（ドラッグ不可）
+  });
+
+  renderFreeFrame();
+  renderCarryoverAvgControls(key, draws.length);
+}
+
+function renderCarryoverAvgControls(key, drawCount){
+  const mode = carryoverAvgState[key];
+  const container = document.getElementById('carryoverAvgModeControls');
+  container.innerHTML = `
+    <span class="mist-control-label">直近${drawCount}回のキャリーオーバー当選を集計</span>
+    <button type="button" class="pattern-btn wide${mode==='avg'?' active':''}" data-mode="avg">平均</button>
+    <button type="button" class="pattern-btn wide${mode==='majority'?' active':''}" data-mode="majority">多数決</button>
+  `;
+  container.querySelectorAll('button[data-mode]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      carryoverAvgState[key] = btn.dataset.mode;
+      renderCarryoverAvgView(key);
+    });
+  });
+}
+
 // ---- 自由配置 reference overlays: mist / dense line / sparse line / CO
 // free-arrangement line, individually toggleable (default off). These are
 // pure reference layers — none of them move the person's own draggable
@@ -3435,6 +3568,7 @@ function setTrack(key){
     document.getElementById('ghostBanner').style.display = 'none';
     document.getElementById('freeBanner').style.display = 'none';
     document.getElementById('avgBanner').style.display = 'none';
+    document.getElementById('carryoverAvgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'flex';
     document.getElementById('timelineTicks').style.display = 'flex';
     document.querySelector('.svg-wrap').style.display = 'block';
@@ -3453,6 +3587,7 @@ function setTrack(key){
     document.getElementById('ghostBanner').style.display = 'block';
     document.getElementById('freeBanner').style.display = 'none';
     document.getElementById('avgBanner').style.display = 'none';
+    document.getElementById('carryoverAvgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'none';
     document.getElementById('timelineTicks').style.display = 'none';
     const srcTrack = TRACKS[GHOST_SOURCE_TRACK[key]];
@@ -3467,6 +3602,7 @@ function setTrack(key){
     document.getElementById('ghostBanner').style.display = 'none';
     document.getElementById('freeBanner').style.display = 'block';
     document.getElementById('avgBanner').style.display = 'none';
+    document.getElementById('carryoverAvgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'none';
     document.getElementById('timelineTicks').style.display = 'none';
     const srcTrack = TRACKS[FREE_SOURCE_TRACK[key]];
@@ -3481,6 +3617,7 @@ function setTrack(key){
     document.getElementById('ghostBanner').style.display = 'none';
     document.getElementById('freeBanner').style.display = 'none';
     document.getElementById('avgBanner').style.display = 'block';
+    document.getElementById('carryoverAvgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'none';
     document.getElementById('timelineTicks').style.display = 'none';
     const freeKey = AVG_TABS[key];
@@ -3491,10 +3628,26 @@ function setTrack(key){
     return;
   }
 
+  if(key in AVG_CARRYOVER_TABS){
+    clearDynamicLayers();
+    document.getElementById('ghostBanner').style.display = 'none';
+    document.getElementById('freeBanner').style.display = 'none';
+    document.getElementById('avgBanner').style.display = 'none';
+    document.getElementById('carryoverAvgBanner').style.display = 'block';
+    document.getElementById('controlsBlock').style.display = 'none';
+    document.getElementById('timelineTicks').style.display = 'none';
+    const srcTrack = TRACKS[AVG_CARRYOVER_TABS[key]];
+    setGridColumns(5, srcTrack.maxNumber);
+    setBaselineGame(srcTrack.game || 'loto7');
+    renderCarryoverAvgView(key);
+    return;
+  }
+
   clearDynamicLayers();
   document.getElementById('ghostBanner').style.display = 'none';
   document.getElementById('freeBanner').style.display = 'none';
   document.getElementById('avgBanner').style.display = 'none';
+  document.getElementById('carryoverAvgBanner').style.display = 'none';
   document.getElementById('controlsBlock').style.display = 'flex';
   document.getElementById('timelineTicks').style.display = 'flex';
   setGridColumns(5, TRACKS[key].maxNumber);
