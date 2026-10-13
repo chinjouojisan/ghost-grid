@@ -451,6 +451,13 @@
   .ball-reset-btn{ font-size:11px; padding:5px 12px; border-radius:999px; }
   .ball-reset-btn:disabled{ opacity:0.35; cursor:default; }
   .ball-note{ margin-top:8px; color:var(--text-dim); }
+  .ball-legend.dense .ball-legend-row{ padding:1px 6px; font-size:10px; gap:6px; }
+  .ball-legend.dense .ball-legend-no{ min-width:56px; }
+  .heat-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .heat-controls label{ display:flex; align-items:center; gap:8px; flex:1 1 190px; color:var(--text); }
+  .heat-controls label b{ min-width:18px; text-align:right; color:var(--cyan); }
+  .heat-controls button{ font-size:11px; padding:6px 12px; border-radius:999px; }
+  .heat-mode .grid-num, .heat-mode .cell-dot{ display:none; }
   .ball-empty{ line-height:1.7; }
   .draggable{ cursor: grab; touch-action: pinch-zoom; }
   .dragging{ cursor: grabbing; touch-action: pinch-zoom; }
@@ -717,10 +724,24 @@
           </div>
         </div>
         <div class="track-tabs-row">
-          <span class="row-label">球</span>
+          <span class="row-label">4+1</span>
           <div class="track-tabs">
             <button class="tab-btn" data-track="ballLoto7">セット球 ロト7</button>
             <button class="tab-btn" data-track="ballLoto6">セット球 ロト6</button>
+          </div>
+        </div>
+        <div class="track-tabs-row">
+          <span class="row-label">9+1</span>
+          <div class="track-tabs">
+            <button class="tab-btn" data-track="nineLoto7">セット球 ロト7</button>
+            <button class="tab-btn" data-track="nineLoto6">セット球 ロト6</button>
+          </div>
+        </div>
+        <div class="track-tabs-row">
+          <span class="row-label">重複</span>
+          <div class="track-tabs">
+            <button class="tab-btn" data-track="heatLoto7">セット球 ロト7</button>
+            <button class="tab-btn" data-track="heatLoto6">セット球 ロト6</button>
           </div>
         </div>
       </div>
@@ -750,7 +771,16 @@
         <div id="ballPicker" class="ball-picker"></div>
         <div id="ballLegend" class="ball-legend"></div>
         <button id="ballResetBtn" type="button" class="ball-reset-btn" disabled>自由ラインを元に戻す</button>
-        <div class="ball-note">選んだセット球が直近で使われた4回を、古い順に薄くして重ねます。▶ で4回分が連続で動き、4本残ったあと、5本目の「自由ライン」（点をドラッグ）を動かせます。自由ラインは球ごとに1本、この端末に保存されます。当選数字の予測ではありません。</div>
+        <div class="ball-note" id="ballNote">選んだセット球が直近で使われた4回を、古い順に薄くして重ねます。▶ で4回分が連続で動き、4本残ったあと、5本目の「自由ライン」（点をドラッグ）を動かせます。自由ラインは球ごとに1本、この端末に保存されます。当選数字の予測ではありません。</div>
+      </div>
+      <div id="heatBanner" class="ghost-banner" style="display:none;">
+        <div id="heatPicker" class="ball-picker"></div>
+        <div class="heat-controls">
+          <label>直近 <b id="heatNLabel">10</b> 回 <input id="heatN" type="range" min="5" max="20" step="1" value="10"></label>
+          <button id="heatPlayBtn" type="button">▶ 積み上げ</button>
+          <button id="heatLinesBtn" type="button" class="overlay-toggle-btn mist active">ライン</button>
+        </div>
+        <div class="ball-note">選んだセット球が使われた直近の回（ボーナス数字は含みません）で、同じ数字が重なった回数を光の大きさで表します。2回=水色、3回=白、4回以上=ピンク。点線の輪は一度も出ていない数字（隙間）です。回数の偏りは偶然でも起きるため、当選数字の予測ではありません。</div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -1391,7 +1421,7 @@ function goTo(idx, animate=true){
   const to = idx;
   if(from === to){ render(to); currentIdx = to; return; }
   updateTrailLayer(from);
-  const duration = trailMode ? 2000 : 1000;
+  const duration = (isBallTrack() && ballState.keep > 4) ? 1100 : (trailMode ? 2000 : 1000);
   let startTime = null;
   function step(now){
     if(startTime === null) startTime = now;
@@ -1455,7 +1485,7 @@ playBtn.onclick = ()=>{
     playTimer = setInterval(()=>{
       if(ballState.step >= ballState.rows.length){ stopPlay(); return; }
       ballNav(1);
-    }, 2600);
+    }, ballState.keep > 4 ? 1500 : 2600);
   } else {
     if(currentIdx >= draws.length-1){ goTo(0, false); }
     playTimer = setInterval(()=>{
@@ -3616,6 +3646,7 @@ function clearDynamicLayers(){
   freeReadOnly = false;
   freeActiveManualIndex = -1;
   ballResetState();
+  heatClear();
 }
 
 function setTrack(key){
@@ -3623,6 +3654,7 @@ function setTrack(key){
   stopPlay();
   trackKey = key;
   document.getElementById('ballBanner').style.display = 'none';
+  document.getElementById('heatBanner').style.display = 'none';
   document.querySelectorAll('.tab-btn').forEach(b=>{
     b.classList.toggle('active', b.dataset.track === key);
   });
@@ -3655,10 +3687,26 @@ function setTrack(key){
     document.getElementById('carryoverAvgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'flex';
     document.getElementById('timelineTicks').style.display = 'flex';
-    const bGame = BALL_TRACKS[key];
+    const bCfg = BALL_TRACKS[key];
+    const bGame = bCfg.game;
     setGridColumns(5, bGame === 'loto6' ? 43 : 37);
     setBaselineGame(bGame);
-    renderBallView(bGame);
+    renderBallView(bGame, bCfg.keep);
+    return;
+  }
+
+  if(key in HEAT_TRACKS){
+    clearDynamicLayers();
+    document.getElementById('ghostBanner').style.display = 'none';
+    document.getElementById('freeBanner').style.display = 'none';
+    document.getElementById('avgBanner').style.display = 'none';
+    document.getElementById('carryoverAvgBanner').style.display = 'none';
+    document.getElementById('controlsBlock').style.display = 'none';
+    document.getElementById('timelineTicks').style.display = 'none';
+    const hGame = HEAT_TRACKS[key];
+    setGridColumns(5, hGame === 'loto6' ? 43 : 37);
+    setBaselineGame(hGame);
+    renderHeatView(hGame);
     return;
   }
 
@@ -3768,16 +3816,18 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // 直近で使われた4回分を取り出し、既存の「全パターン」と同じ変形アニメで1本ずつ重ねて
 // 残す。4本そろったあと、5本目の「自由ライン」（4本目と同じ位置から開始）をドラッグ
 // できる。自由ラインはロト別・セット球別に1本、この端末の localStorage に保存。
-const BALL_TRACKS = { ballLoto7:'loto7', ballLoto6:'loto6' };
+const BALL_TRACKS = {
+  ballLoto7:{game:'loto7', keep:4}, ballLoto6:{game:'loto6', keep:4},
+  nineLoto7:{game:'loto7', keep:9}, nineLoto6:{game:'loto6', keep:9}
+};
 const BALL_LETTERS = ['A','B','C','D','E','F','G','H','I','J'];
-const BALL_KEEP = 4;
 const BALL_FREE_KEY = 'ggBallFree_v1';
 const BALL_SEL_KEY = 'ggBallSel_v1';
-const ballState = { game:null, ball:null, rows:[], step:-1, freeTouched:false };
+const ballState = { game:null, ball:null, rows:[], step:-1, freeTouched:false, keep:4 };
 const ballTrailG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
 svg.insertBefore(ballTrailG, bodyPath);
 
-function isBallTrack(){ return typeof trackKey === 'string' && trackKey.indexOf('ball') === 0; }
+function isBallTrack(){ return typeof trackKey === 'string' && /^(ball|nine)/.test(trackKey); }
 function ballLoad(key, fb){
   try{ const r = localStorage.getItem(key); return r ? JSON.parse(r) : fb; }catch(e){ return fb; }
 }
@@ -3800,8 +3850,11 @@ function ballResetState(){
   ballState.step = -1;
 }
 
-function renderBallView(game){
+function renderBallView(game, keep){
+  ballState.keep = keep || 4;
   document.getElementById('ballBanner').style.display = 'block';
+  { const k = ballState.keep;
+    document.getElementById('ballNote').textContent = `選んだセット球が直近で使われた${k}回を、古い順に薄くして重ねます。▶ で${k}回分が連続で動き、${k}本残ったあと、${k+1}本目の「自由ライン」（点をドラッグ）を動かせます。自由ラインは球ごとに1本、この端末に保存されます。当選数字の予測ではありません。`; }
   const all = ballAll(game);
   if(!all.some(r=>r[1])){
     ballState.game = game; ballState.rows = []; ballState.step = -1;
@@ -3824,7 +3877,7 @@ function renderBallView(game){
 
 function setBall(game, ball){
   stopPlay();
-  const rows = ballAll(game).filter(r=>r[1] === ball).slice(-BALL_KEEP);
+  const rows = ballAll(game).filter(r=>r[1] === ball).slice(-ballState.keep);
   ballState.game = game; ballState.ball = ball; ballState.rows = rows; ballState.freeTouched = false;
   const sel = ballLoad(BALL_SEL_KEY, {}); sel[game] = ball; ballSave(BALL_SEL_KEY, sel);
   exitBallFree();
@@ -3847,7 +3900,9 @@ function setBall(game, ball){
   trailMode = true;
   document.getElementById('controlsBlock').style.display = 'flex';
   document.getElementById('timelineTicks').style.display = 'flex';
-  document.getElementById('timelineTicks').innerHTML = rows.map(r=>`<span>第${r[0]}回</span>`).join('') + '<span>自由</span>';
+  document.getElementById('timelineTicks').innerHTML = (N > 5)
+    ? rows.map((r,i)=>`<span>${(i === 0 || i === N-1) ? '第' + r[0] + '回' : r[0]}</span>`).join('') + '<span>自由</span>'
+    : rows.map(r=>`<span>第${r[0]}回</span>`).join('') + '<span>自由</span>';
   document.getElementById('trailTitle').textContent = `Centroid Drift — セット球${ball}（直近${N}回）`;
   scrub.max = N;
   ballState.step = N-1;
@@ -3858,17 +3913,20 @@ function setBall(game, ball){
 }
 
 function renderBallPicker(){
-  const stats = ballStats(ballState.game);
-  const box = document.getElementById('ballPicker');
+  renderPickerInto('ballPicker', ballState.game, ballState.ball, (b)=> setBall(ballState.game, b));
+}
+function renderPickerInto(boxId, game, ball, onPick){
+  const stats = ballStats(game);
+  const box = document.getElementById(boxId);
   box.innerHTML = BALL_LETTERS.map(b=>{
     const w = ballWait(stats, b);
     const isPrev = b === stats.prevBall;
-    const cls = 'ball-btn' + (b === ballState.ball ? ' active' : '') + (isPrev ? ' prev' : '');
+    const cls = 'ball-btn' + (b === ball ? ' active' : '') + (isPrev ? ' prev' : '');
     const sub = isPrev ? '前回' : (w < 0 ? '—' : '待' + w);
     return `<button type="button" class="${cls}" data-ball="${b}"><b>${b}</b><small>${sub}</small></button>`;
   }).join('');
   box.querySelectorAll('.ball-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=> setBall(ballState.game, btn.dataset.ball));
+    btn.addEventListener('click', ()=> onPick(btn.dataset.ball));
   });
 }
 
@@ -3880,7 +3938,9 @@ function renderBallLegend(){
     return `<div class="ball-legend-row" data-i="${i}"><span class="ball-dot" style="opacity:${op}">●</span><span class="ball-legend-no">第${r[0]}回</span><span class="ball-legend-date">${ballShortDate(r[4])}</span><span>${nums}</span></div>`;
   }).join('');
   html += `<div class="ball-legend-row free" data-i="${N}"><span class="ball-dot free">●</span><span class="ball-legend-no">自由ライン</span><span class="ball-legend-date"></span><span id="ballFreeNums"></span></div>`;
-  document.getElementById('ballLegend').innerHTML = html;
+  const legendBox = document.getElementById('ballLegend');
+  legendBox.className = 'ball-legend' + (N > 5 ? ' dense' : '');
+  legendBox.innerHTML = html;
   ballHighlight(ballState.step);
 }
 function ballHighlight(idx){
@@ -3896,14 +3956,14 @@ function renderBallRetained(p){
   for(let i=0;i<ballState.rows.length;i++){ if(i < p - 1e-9) idxs.push(i); }
   idxs.forEach((i, pos)=>{
     const rank = idxs.length - 1 - pos;           // 0 = 残っている中でいちばん新しい線
-    const op = Math.max(0.10, 0.5 - 0.13*rank);
+    const op = Math.max(0.08, 0.5 - rank * 0.4 / Math.max(1, ballState.keep - 1));
     const pts = ballSorted(ballState.rows[i][2]).map(gridXY);
     ballTrailG.appendChild(el('path',{d:catmullRomPath(pts), fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.8, opacity:op}));
     pts.forEach(([x,y])=> ballTrailG.appendChild(el('circle',{cx:x, cy:y, r:4.2, fill:'#6FF5FF', opacity:op})));
   });
 }
 
-function ballFreeStoreKey(){ return ballState.game + ':' + ballState.ball; }
+function ballFreeStoreKey(){ return ballState.game + ':' + ballState.ball + (ballState.keep === 4 ? '' : ':' + ballState.keep); }
 function ballFreeValues(){
   const rows = ballState.rows;
   const last = ballSorted(rows[rows.length-1][2]);
@@ -3996,6 +4056,171 @@ document.getElementById('ballResetBtn').addEventListener('click', ()=>{
   ballSave(BALL_FREE_KEY, st);
   ballState.freeTouched = false;
   if(ballState.step === ballState.rows.length) enterBallFree(); else ballUpdateReset();
+});
+
+// ---- 重複グリッド（heatLoto7 / heatLoto6）----------------------------------------
+// 選んだセット球が使われた直近N回（ボーナス数字は含めない）の本数字を数え、同じ数字が
+// 重なった回数を、マスの光の大きさと色で表す。0回のマスは点線の輪（隙間）。
+// N本のラインは薄く重ねて表示（オンオフ可）。「積み上げ」で1回ずつ増やして見られる。
+const HEAT_TRACKS = { heatLoto7:'loto7', heatLoto6:'loto6' };
+const HEAT_CFG_KEY = 'ggHeatCfg_v1';
+const HEAT_MIN = 5, HEAT_MAX = 20;
+const heatLinesG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
+const heatDotsG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
+svg.insertBefore(heatLinesG, dotsG);
+svg.insertBefore(heatDotsG, dotsG);
+const heatState = { game:null, ball:null, n:10, lines:true, shown:0, rows:[] };
+let heatTimer = null;
+
+function heatStopTimer(){
+  if(heatTimer){ clearInterval(heatTimer); heatTimer = null; }
+  const b = document.getElementById('heatPlayBtn');
+  if(b) b.textContent = '▶ 積み上げ';
+}
+function heatClear(){
+  heatStopTimer();
+  while(heatLinesG.firstChild) heatLinesG.removeChild(heatLinesG.firstChild);
+  while(heatDotsG.firstChild) heatDotsG.removeChild(heatDotsG.firstChild);
+  svg.classList.remove('heat-mode');
+  document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; });
+}
+function heatSaveCfg(){
+  const cfg = ballLoad(HEAT_CFG_KEY, {});
+  cfg[heatState.game] = { n: heatState.n, lines: heatState.lines };
+  ballSave(HEAT_CFG_KEY, cfg);
+}
+function heatDefaultBall(game){
+  const stats = ballStats(game);
+  return BALL_LETTERS.slice().sort((a,b)=> (ballWait(stats,b) < 0 ? 1e9 : ballWait(stats,b)) - (ballWait(stats,a) < 0 ? 1e9 : ballWait(stats,a)))[0];
+}
+
+function renderHeatView(game){
+  document.getElementById('heatBanner').style.display = 'block';
+  heatState.game = game;
+  const cfg = ballLoad(HEAT_CFG_KEY, {})[game] || {};
+  heatState.n = Math.max(HEAT_MIN, Math.min(HEAT_MAX, Number(cfg.n) || (game === 'loto6' ? 10 : 9)));
+  heatState.lines = cfg.lines !== false;
+  if(!ballAll(game).some(r=>r[1])){
+    heatState.rows = [];
+    document.getElementById('heatPicker').innerHTML = '<div class="ball-empty">セット球つきのデータがまだありません。data.json の自動更新（update-data）が動くと表示されます。</div>';
+    document.getElementById('drawId').textContent = '—';
+    document.getElementById('drawDate').textContent = '';
+    return;
+  }
+  let ball = ballLoad(BALL_SEL_KEY, {})[game];
+  if(BALL_LETTERS.indexOf(ball) < 0) ball = heatDefaultBall(game);
+  setHeatBall(game, ball);
+}
+function setHeatBall(game, ball){
+  heatState.game = game; heatState.ball = ball;
+  const sel = ballLoad(BALL_SEL_KEY, {}); sel[game] = ball; ballSave(BALL_SEL_KEY, sel);
+  renderPickerInto('heatPicker', game, ball, (b)=> setHeatBall(game, b));
+  heatRefresh();
+}
+function heatRefresh(){
+  heatStopTimer();
+  heatState.rows = ballAll(heatState.game).filter(r=>r[1] === heatState.ball).slice(-heatState.n);
+  document.getElementById('heatN').value = heatState.n;
+  document.getElementById('heatNLabel').textContent = heatState.n;
+  document.getElementById('heatLinesBtn').classList.toggle('active', heatState.lines);
+  svg.classList.add('heat-mode');
+  renderHeatFrame(heatState.rows.length);
+}
+
+function heatStyle(c){
+  if(c >= 4) return {fill:'#FF6FC9', text:'#1a0a12'};
+  if(c === 3) return {fill:'#FFF6D9', text:'#1a1a10'};
+  if(c === 2) return {fill:'#6FF5FF', text:'#04202a'};
+  return {fill:'#2f7f96', text:'#dff7fb'};
+}
+
+function renderHeatFrame(upto){
+  const maxN = heatState.game === 'loto6' ? 43 : 37;
+  const rows = heatState.rows, N = rows.length;
+  upto = Math.max(0, Math.min(N, upto));
+  heatState.shown = upto;
+  while(heatLinesG.firstChild) heatLinesG.removeChild(heatLinesG.firstChild);
+  while(heatDotsG.firstChild) heatDotsG.removeChild(heatDotsG.firstChild);
+
+  const cnt = new Array(maxN+1).fill(0);
+  rows.slice(0, upto).forEach(r=> r[2].forEach(x=>{ cnt[x]++; }));
+
+  if(heatState.lines && upto){
+    const op = Math.max(0.05, Math.min(0.22, 1.6/Math.max(1, N)));
+    rows.slice(0, upto).forEach(r=>{
+      const pts = ballSorted(r[2]).map(gridXY);
+      heatLinesG.appendChild(el('path',{d:catmullRomPath(pts), fill:'none', stroke:'#6FF5FF', ['stroke-width']:1.4, opacity:op}));
+    });
+  }
+  for(let n=1;n<=maxN;n++){
+    const [x,y] = gridXY(n);
+    const c = cnt[n];
+    const label = (txt, fill, size)=>{
+      const t = el('text',{x:x, y:y+4, ['text-anchor']:'middle', ['font-family']:'Space Mono, monospace', ['font-size']:size, ['font-weight']:700, fill:fill});
+      t.textContent = txt; return t;
+    };
+    if(c === 0){
+      heatDotsG.appendChild(el('circle',{cx:x, cy:y, r:11, fill:'none', stroke:'#6b7a99', ['stroke-width']:1, ['stroke-dasharray']:'2,3', opacity:0.75}));
+      heatDotsG.appendChild(label(String(n), '#6b7a99', 10));
+      continue;
+    }
+    const st = heatStyle(c);
+    const r = 8 + 4*(c-1);
+    heatDotsG.appendChild(el('circle',{cx:x, cy:y, r:r*1.8, fill:st.fill, opacity:0.10 + 0.03*c}));
+    heatDotsG.appendChild(el('circle',{cx:x, cy:y, r:r, fill:st.fill, opacity: c === 1 ? 0.75 : 0.95}));
+    heatDotsG.appendChild(label(String(n), st.text, c >= 3 ? 12 : 10));
+    if(c >= 2){
+      const t = el('text',{x:x, y:y+r+11, ['text-anchor']:'middle', ['font-family']:'Space Mono, monospace', ['font-size']:9, fill:'#8FE0EE'});
+      t.textContent = '×' + c; heatDotsG.appendChild(t);
+    }
+  }
+  heatPanel(cnt, upto, maxN);
+}
+
+function heatPanel(cnt, upto, maxN){
+  const rows = heatState.rows;
+  const pad = (n)=> String(n).padStart(2,'0');
+  const hi = [], zero = [];
+  for(let n=1;n<=maxN;n++){ if(cnt[n] >= 3) hi.push([n, cnt[n]]); if(cnt[n] === 0) zero.push(n); }
+  hi.sort((a,b)=> b[1]-a[1] || a[0]-b[0]);
+  document.getElementById('drawId').textContent = `重複 ・${heatState.ball}セット`;
+  document.getElementById('drawDate').textContent = rows.length
+    ? `直近${rows.length}回（第${rows[0][0]}〜${rows[rows.length-1][0]}回）` + (upto < rows.length ? ` ／ ${upto}回目まで` : '')
+    : 'このセット球の履歴がありません';
+  document.getElementById('mainNums').innerHTML = hi.length
+    ? hi.map(([n,c])=>`<span class="num-chip">${pad(n)} ×${c}</span>`).join('')
+    : '<span style="color:var(--text-dim);font-size:12px;">3回以上の数字はありません</span>';
+  document.getElementById('bonusNums').innerHTML = zero.length
+    ? '<span style="color:var(--text-dim);font-size:12px;margin-right:4px;">0回</span>' + zero.map(n=>`<span class="num-chip bonus">${pad(n)}</span>`).join('')
+    : '';
+  ['mCentroid','mNN','mGap','mOdd','mSum'].forEach(id=>{ document.getElementById(id).textContent = '—'; });
+  ['pMeanNN','pGap','pSum'].forEach(id=>{ document.getElementById(id).textContent = '—'; });
+  document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = 'none'; });
+  document.getElementById('shapeMetricNote').textContent = '重複グリッドでは線の形の指標は使いません。';
+  document.getElementById('trailTitle').textContent = 'Centroid Drift';
+  while(trailSvg.firstChild) trailSvg.removeChild(trailSvg.firstChild);
+}
+
+document.getElementById('heatN').addEventListener('input', (e)=>{
+  heatState.n = Number(e.target.value);
+  heatSaveCfg();
+  heatRefresh();
+});
+document.getElementById('heatLinesBtn').addEventListener('click', ()=>{
+  heatState.lines = !heatState.lines;
+  document.getElementById('heatLinesBtn').classList.toggle('active', heatState.lines);
+  heatSaveCfg();
+  renderHeatFrame(heatState.shown);
+});
+document.getElementById('heatPlayBtn').addEventListener('click', ()=>{
+  if(heatTimer){ heatStopTimer(); return; }
+  if(!heatState.rows.length) return;
+  document.getElementById('heatPlayBtn').textContent = '❚❚ 停止';
+  renderHeatFrame(0);
+  heatTimer = setInterval(()=>{
+    if(heatState.shown >= heatState.rows.length){ heatStopTimer(); return; }
+    renderHeatFrame(heatState.shown + 1);
+  }, 650);
 });
 
 // ---- Draft draws & predictions (device-local, offline-editable) -------
