@@ -746,7 +746,7 @@
         </div>
       </div>
       <div class="draft-bar">
-        <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 結果・予想を記録（下書き・この端末のみ）</button>
+        <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 予想を記録（下書き・この端末のみ）</button>
         <button id="exportToggleBtn" class="draft-toggle-btn export-toggle-btn" type="button">📋 分析用データを書き出す</button>
         <div id="draftPanel" class="draft-panel" style="display:none;"></div>
         <div id="exportPanel" class="draft-panel" style="display:none;"></div>
@@ -4326,7 +4326,6 @@ function renderDraftPanel(){
   const panel = document.getElementById('draftPanel');
   panel.innerHTML = `
     <div class="draft-mode-tabs">
-      <button type="button" class="draft-mode-tab${draftMode==='result'?' active':''}" data-mode="result">結果を記録</button>
       <button type="button" class="draft-mode-tab${draftMode==='prediction'?' active':''}" data-mode="prediction">予想を記録</button>
     </div>
     <div id="draftFormArea"></div>
@@ -4338,7 +4337,7 @@ function renderDraftPanel(){
       renderDraftPanel();
     });
   });
-  if(draftMode === 'result') renderResultForm(); else renderPredictionForm();
+  renderPredictionForm();
   renderDraftList();
 }
 
