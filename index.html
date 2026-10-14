@@ -193,6 +193,16 @@
   .draft-bar{ margin-bottom: 14px; display:flex; flex-wrap:wrap; gap:8px; }
   .export-toggle-btn{ border-color: var(--cyan); color: var(--cyan); }
   .export-toggle-btn:hover{ background: rgba(111,245,255,0.08); }
+  .backup-toggle-btn{ border-color: #7CFF8A; color: #7CFF8A; }
+  .backup-toggle-btn:hover{ background: rgba(124,255,138,0.08); }
+  .backup-sec{ margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.15); }
+  .backup-sec h4{ margin: 0 0 6px; font-size: 12px; color: var(--text); }
+  .backup-list{ margin: 0 0 8px; padding-left: 18px; color: var(--text-dim); font-size: 11px; }
+  .backup-ta{ width:100%; min-height: 90px; box-sizing:border-box; background: var(--bg2); color: var(--text);
+    border:1px solid var(--grid-line); border-radius:3px; font-family:'Space Mono', monospace; font-size:11px; padding:8px; }
+  .backup-btns{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; }
+  .backup-msg{ font-size:11px; color: var(--text-dim); }
+  .backup-msg.err{ color:#ff8a8a; }
   .draft-mode-tabs{ display:flex; gap:8px; margin-bottom:12px; }
   .draft-mode-tab{
     font-family:'Space Mono', monospace;
@@ -804,8 +814,10 @@
       <div class="draft-bar">
         <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 予想を記録（下書き・この端末のみ）</button>
         <button id="exportToggleBtn" class="draft-toggle-btn export-toggle-btn" type="button">📋 分析用データを書き出す</button>
+        <button id="backupToggleBtn" class="draft-toggle-btn backup-toggle-btn" type="button">💾 保存した線のバックアップ</button>
         <div id="draftPanel" class="draft-panel" style="display:none;"></div>
         <div id="exportPanel" class="draft-panel" style="display:none;"></div>
+        <div id="backupPanel" class="draft-panel" style="display:none;"></div>
       </div>
       <div id="freeBanner" class="ghost-banner" style="display:none;">
         各点を自由にドラッグできます。線は自動でついてきます。指を離すと、一番近いマスの中心にスナップします（蠢きはありません・当選数字の予測ではありません）。「自由配置」では予想パターンを10個まで保持でき、右上の丸ボタンで切り替えられます（この端末に保存され、新しい抽選結果が出てもリセットするまで維持されます）。
@@ -4642,6 +4654,7 @@ let draftMode = 'result'; // 'result' | 'prediction'
 
 document.getElementById('draftToggleBtn').addEventListener('click', ()=>{
   document.getElementById('exportPanel').style.display = 'none';
+  document.getElementById('backupPanel').style.display = 'none';
   const panel = document.getElementById('draftPanel');
   const open = panel.style.display !== 'none';
   if(open){
@@ -4655,6 +4668,7 @@ document.getElementById('draftToggleBtn').addEventListener('click', ()=>{
 
 document.getElementById('exportToggleBtn').addEventListener('click', ()=>{
   document.getElementById('draftPanel').style.display = 'none';
+  document.getElementById('backupPanel').style.display = 'none';
   const panel = document.getElementById('exportPanel');
   const open = panel.style.display !== 'none';
   if(open){
@@ -5357,6 +5371,145 @@ function renderExportPanel(){
     setTimeout(()=>{ status.textContent=''; }, 2500);
   });
 }
+
+// ---- 保存した線のバックアップ（書き出し／読み込み） ----
+// この端末の localStorage にある「自分で作ったもの」（自由ライン・予想・重ね見の形・設定）を
+// 1つのJSONにまとめて書き出し／読み込みする。取り消し履歴(UndoStack)は対象外。
+const BACKUP_APP = 'ghost-grid-backup';
+const BACKUP_KEYS = [
+  ['ggFreePatterns_v1',     '自由配置の予想パターン'],
+  ['ggBallFree_v1',         'セット球の自由ライン（4+1／9+1）'],
+  ['ggBallSel_v1',          'セット球の選択状態'],
+  ['ggOverlay_v1',          '重ね見の形'],
+  ['ggHeatCfg_v1',          '重複の設定'],
+  ['ggDraftPredictions_v1', '記録した予想'],
+  ['ggDraftCarryover_v1',   'キャリーオーバーの下書き'],
+  ['ggDraftDraws_v1',       '手入力の抽選結果（旧機能）']
+];
+
+function backupCollect(){
+  const data = {};
+  BACKUP_KEYS.forEach(([k])=>{
+    try{
+      const raw = localStorage.getItem(k);
+      if(raw != null) data[k] = JSON.parse(raw);
+    }catch(e){ /* 壊れたキーは飛ばす */ }
+  });
+  return data;
+}
+function backupCount(key, v){
+  if(v == null || typeof v !== 'object') return 0;
+  const walk = x => Array.isArray(x) ? x.length : Object.keys(x).length;
+  return walk(v);
+}
+function backupBuildJson(){
+  return JSON.stringify({
+    app: BACKUP_APP, version: 1,
+    exportedAt: new Date().toISOString(),
+    data: backupCollect()
+  }, null, 1);
+}
+// 戻り値: {ok, data, error}
+function backupParse(text){
+  let obj;
+  try{ obj = JSON.parse(text); }catch(e){ return {ok:false, error:'JSONとして読めませんでした。コピーした内容が途中で切れていないか確認してください。'}; }
+  if(!obj || obj.app !== BACKUP_APP || typeof obj.data !== 'object' || obj.data === null){
+    return {ok:false, error:'Ghost Gridのバックアップではありません。'};
+  }
+  const allowed = new Set(BACKUP_KEYS.map(x=>x[0]));
+  const data = {};
+  Object.keys(obj.data).forEach(k=>{ if(allowed.has(k) && obj.data[k] != null && typeof obj.data[k] === 'object') data[k] = obj.data[k]; });
+  if(!Object.keys(data).length) return {ok:false, error:'復元できるデータが入っていませんでした。'};
+  return {ok:true, data};
+}
+
+function renderBackupPanel(){
+  const panel = document.getElementById('backupPanel');
+  const cur = backupCollect();
+  const rows = BACKUP_KEYS.filter(([k])=>cur[k] !== undefined)
+    .map(([k,label])=>`<li>${label}：${backupCount(k, cur[k])}件</li>`).join('');
+  panel.innerHTML = `
+    <div class="draft-note">自由ラインや予想はこの端末のブラウザにだけ保存されています。機種変更・データ消去・アプリの入れ直しで消えるので、時々ここで書き出しておくと安心です。</div>
+    <div class="backup-sec">
+      <h4>① 書き出す</h4>
+      <ul class="backup-list">${rows || '<li>保存されているデータはまだありません</li>'}</ul>
+      <div class="backup-btns">
+        <button id="bkCopyBtn" class="draft-save-btn" type="button">コピー</button>
+        <button id="bkFileBtn" class="draft-save-btn" type="button">ファイルに保存</button>
+        <span id="bkOutMsg" class="backup-msg"></span>
+      </div>
+    </div>
+    <div class="backup-sec">
+      <h4>② 読み込む</h4>
+      <div class="draft-note" style="margin-bottom:6px;">コピーした内容を貼り付けるか、保存したファイルを選んでください。読み込むと、この端末の同じ種類のデータは<b>上書き</b>されます。</div>
+      <textarea id="bkTa" class="backup-ta" placeholder="ここにバックアップの内容を貼り付け"></textarea>
+      <div class="backup-btns">
+        <button id="bkPickBtn" class="draft-save-btn" type="button">ファイルを選ぶ</button>
+        <input id="bkFile" type="file" accept=".json,application/json,text/plain" style="display:none;">
+        <button id="bkLoadBtn" class="draft-save-btn" type="button">読み込む</button>
+        <span id="bkInMsg" class="backup-msg"></span>
+      </div>
+    </div>`;
+  const outMsg = document.getElementById('bkOutMsg');
+  const inMsg = document.getElementById('bkInMsg');
+  const say = (el, t, err)=>{ el.textContent = t; el.classList.toggle('err', !!err); };
+
+  document.getElementById('bkCopyBtn').addEventListener('click', async ()=>{
+    const json = backupBuildJson();
+    try{
+      await navigator.clipboard.writeText(json);
+      say(outMsg, 'コピーしました。メモアプリなどに貼って保管してください', false);
+    }catch(e){
+      const ta = document.getElementById('bkTa');
+      ta.value = json; ta.select();
+      let ok = false;
+      try{ ok = document.execCommand('copy'); }catch(e2){}
+      ta.value = '';
+      say(outMsg, ok ? 'コピーしました' : 'コピーできませんでした。「ファイルに保存」を使ってください', !ok);
+    }
+  });
+  document.getElementById('bkFileBtn').addEventListener('click', ()=>{
+    try{
+      const blob = new Blob([backupBuildJson()], {type:'application/json'});
+      const a = document.createElement('a');
+      const d = new Date(); const z = n=>String(n).padStart(2,'0');
+      a.href = URL.createObjectURL(blob);
+      a.download = `ghost-grid-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+      say(outMsg, 'ファイルを保存しました（ダウンロード先を確認してください）', false);
+    }catch(e){ say(outMsg, '保存できませんでした。「コピー」を使ってください', true); }
+  });
+  document.getElementById('bkPickBtn').addEventListener('click', ()=>document.getElementById('bkFile').click());
+  document.getElementById('bkFile').addEventListener('change', async (ev)=>{
+    const f = ev.target.files && ev.target.files[0];
+    if(!f) return;
+    try{
+      document.getElementById('bkTa').value = await f.text();
+      say(inMsg, `「${f.name}」を読み込み欄に入れました。内容を確認して「読み込む」を押してください`, false);
+    }catch(e){ say(inMsg, 'ファイルを読めませんでした', true); }
+    ev.target.value = '';
+  });
+  document.getElementById('bkLoadBtn').addEventListener('click', ()=>{
+    const r = backupParse(document.getElementById('bkTa').value.trim());
+    if(!r.ok){ say(inMsg, r.error, true); return; }
+    const names = BACKUP_KEYS.filter(([k])=>r.data[k] !== undefined).map(([,l])=>l).join('、');
+    if(!confirm(`次のデータをこの端末に読み込みます（同じ種類は上書き）。\n\n${names}\n\nよろしいですか？`)) return;
+    try{
+      Object.keys(r.data).forEach(k=>localStorage.setItem(k, JSON.stringify(r.data[k])));
+    }catch(e){ say(inMsg, '保存に失敗しました（容量不足の可能性）', true); return; }
+    say(inMsg, '読み込みました。画面を更新します…', false);
+    setTimeout(()=>location.reload(), 600);
+  });
+}
+
+document.getElementById('backupToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('draftPanel').style.display = 'none';
+  document.getElementById('exportPanel').style.display = 'none';
+  const panel = document.getElementById('backupPanel');
+  if(panel.style.display !== 'none'){ panel.style.display = 'none'; }
+  else{ renderBackupPanel(); panel.style.display = 'block'; }
+});
 
 // trackKey is still 'all' here, so this runs in full rather than early-returning
 setTrack('allTrail');
