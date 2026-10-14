@@ -86,6 +86,30 @@
   .track-tabs-wrap{
     margin-bottom: 16px;
   }
+  .ov-count{ font-size:11px; color:var(--text-dim); margin-bottom:6px; text-align:right; }
+  .ov-group{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .ov-glabel{ flex:0 0 52px; font-size:11px; font-weight:700; line-height:1.25; }
+  .ov-glabel small{ font-weight:400; font-size:9px; color:var(--text-dim); }
+  .ov-glabel.blue{ color:#6FF5FF; } .ov-glabel.green{ color:#7CFF8A; } .ov-glabel.yellow{ color:#FFE55C; }
+  .ov-btns{ display:flex; flex-wrap:wrap; gap:6px; flex:1 1 auto; }
+  .ov-btn{ font-family:'Space Mono', monospace; font-size:12px; min-width:34px; padding:6px 9px; border-radius:999px;
+    background:transparent; border:1px solid var(--grid-line); color:var(--text-dim); cursor:pointer; }
+  .ov-btn:disabled{ opacity:0.3; cursor:default; }
+  .ov-btn.blue.sel{ background:#6FF5FF; border-color:#6FF5FF; color:#06222a; font-weight:700; }
+  .ov-btn.green.sel{ background:#7CFF8A; border-color:#7CFF8A; color:#06240c; font-weight:700; }
+  .ov-btn.yellow.sel{ background:#FFE55C; border-color:#FFE55C; color:#2a2300; font-weight:700; }
+  .ov-btn.act{ box-shadow:0 0 0 2px var(--bg, #0a0f1a), 0 0 0 4px #fff; }
+  .ov-legend{ margin:10px 0 6px; display:flex; flex-direction:column; gap:6px; }
+  .ov-row{ display:flex; align-items:center; gap:8px; font-size:11px; padding:5px 8px; border:1px solid var(--grid-line); border-radius:6px; }
+  .ov-row.act{ border-color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.05); }
+  .ov-row .ov-dot{ font-size:14px; }
+  .ov-row .ov-name{ flex:0 0 auto; min-width:70px; font-weight:700; }
+  .ov-row .ov-nums{ flex:1 1 auto; min-width:0; color:var(--text); letter-spacing:0.02em; }
+  .ov-row .ov-state{ font-size:9px; color:var(--text-dim); display:block; }
+  .ov-row .ov-nums > span:first-child{ display:block; font-size:10.5px; white-space:nowrap; }
+  .ov-row .ov-name{ white-space:nowrap; }
+  .ov-row button{ white-space:nowrap; flex:0 0 auto; font-family:'Space Mono', monospace; font-size:10px; padding:4px 8px; border-radius:999px; background:transparent; border:1px solid var(--grid-line); color:var(--text); cursor:pointer; }
+  .ov-row button:disabled{ opacity:0.3; cursor:default; }
   .acc{ border:1px solid var(--grid-line); border-radius:6px; margin-bottom:8px; background:rgba(255,255,255,0.015); }
   .acc-head{
     width:100%; display:flex; align-items:center; gap:10px; padding:11px 14px;
@@ -769,6 +793,13 @@
             <button class="tab-btn" data-track="heat20Loto6">重複20</button>
           </div></div>
         </div>
+        <div class="acc" data-acc="overlay">
+          <button type="button" class="acc-head"><span class="acc-title">重ね見</span><span class="acc-cur"></span><span class="acc-arrow">▾</span></button>
+          <div class="acc-body"><div class="acc-tabs">
+            <button class="tab-btn" data-track="overlayLoto7">ロト7</button>
+            <button class="tab-btn" data-track="overlayLoto6">ロト6</button>
+          </div></div>
+        </div>
       </div>
       <div class="draft-bar">
         <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 予想を記録（下書き・この端末のみ）</button>
@@ -806,6 +837,14 @@
           <button id="heatLinesBtn" type="button" class="overlay-toggle-btn mist active">ライン</button>
         </div>
         <div class="ball-note" id="heatNote"></div>
+      </div>
+      <div id="overlayBanner" class="ghost-banner" style="display:none;">
+        <div class="ov-count" id="ovCount"></div>
+        <div class="ov-group"><span class="ov-glabel blue">全回<br><small>自由配置</small></span><div id="ovBtnsAll" class="ov-btns"></div></div>
+        <div class="ov-group"><span class="ov-glabel green">セット球<br><small>4+1の自由</small></span><div id="ovBtnsBall" class="ov-btns"></div></div>
+        <div class="ov-group"><span class="ov-glabel yellow">CO<br><small>CO配置</small></span><div id="ovBtnsCo" class="ov-btns"></div></div>
+        <div id="ovLegend" class="ov-legend"></div>
+        <div class="ball-note" id="ovNote">ボタンを押すと、そのコーナーの最新の当選ライン（薄い線）と、予想ライン（明るい線）が重なって出ます。予想がまだないときは、最新の当選ラインの上に重なります。選んだ線のうち、右の「動かす」を選んだ1本の点をドラッグできます。ここで動かした形は重ね見専用に保存され、元のコーナーには影響しません。最大5本まで。当選数字の予測ではありません。</div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -2968,7 +3007,9 @@ function renderFreeFrame(){
   const maxGap = Math.max(...gaps);
   const sum = values.reduce((a,b)=>a+b,0);
 
-  if(isBallTrack()){
+  if(isOverlayTrack()){
+    ovPanelActive(values);
+  } else if(isBallTrack()){
     document.getElementById('drawId').textContent = `自由ライン ・${scopeShort(ballState.ball)}`;
     document.getElementById('drawDate').textContent = ballState.freeTouched ? '動かした形はこの端末に保存されています' : `${ballState.keep}本目と同じ位置から。点をドラッグして動かせます`;
     const fn = document.getElementById('ballFreeNums');
@@ -3499,6 +3540,8 @@ function endFreeDrag(){
       renderFreePatternSelector(trackKey); // refresh the "touched" dot / reset button label
     } else if(isBallTrack() && ballState.step === ballState.rows.length){
       ballSaveFree();
+    } else if(isOverlayTrack()){
+      ovSaveActive();
     }
   }
 }
@@ -3672,6 +3715,7 @@ function clearDynamicLayers(){
   freeActiveManualIndex = -1;
   ballResetState();
   heatClear();
+  if(typeof ovClear === 'function') ovClear();
 }
 
 function setTrack(key){
@@ -3680,6 +3724,7 @@ function setTrack(key){
   trackKey = key;
   document.getElementById('ballBanner').style.display = 'none';
   document.getElementById('heatBanner').style.display = 'none';
+  document.getElementById('overlayBanner').style.display = 'none';
   document.querySelectorAll('.tab-btn').forEach(b=>{
     b.classList.toggle('active', b.dataset.track === key);
   });
@@ -3718,6 +3763,21 @@ function setTrack(key){
     setGridColumns(5, bGame === 'loto6' ? 43 : 37);
     setBaselineGame(bGame);
     renderBallView(bGame, bCfg.keep, !!bCfg.all);
+    return;
+  }
+
+  if(key in OV_TRACKS){
+    clearDynamicLayers();
+    document.getElementById('ghostBanner').style.display = 'none';
+    document.getElementById('freeBanner').style.display = 'none';
+    document.getElementById('avgBanner').style.display = 'none';
+    document.getElementById('carryoverAvgBanner').style.display = 'none';
+    document.getElementById('controlsBlock').style.display = 'none';
+    document.getElementById('timelineTicks').style.display = 'none';
+    const oGame = OV_TRACKS[key];
+    setGridColumns(5, oGame === 'loto6' ? 43 : 37);
+    setBaselineGame(oGame);
+    renderOverlayView(oGame);
     return;
   }
 
@@ -4318,6 +4378,237 @@ document.getElementById('heatPlayBtn').addEventListener('click', ()=>{
     renderHeatFrame(heatState.shown + 1);
   }, 650);
 });
+
+
+// ---- 重ね見（overlayLoto7 / overlayLoto6）------------------------------------
+// 全回の自由配置(青)・セット球4+1の自由ライン(緑)・CO配置(黄)のボタンを押すと、そのコーナーの
+// 最新の当選ライン（薄い線）と予想ライン（明るい線）をグリッドに重ねる。最大5本。
+// 予想がない場合は最新の当選ラインに重なる。動かした形は重ね見専用に localStorage へ保存し、
+// 元のコーナーには書き戻さない。何も選んでいなければグリッドだけを表示する。
+const OV_TRACKS = { overlayLoto7:'loto7', overlayLoto6:'loto6' };
+const OV_STORE_KEY = 'ggOverlay_v1';
+const OV_MAX = 5;
+const OV_COLORS = { all:'#6FF5FF', ball:'#7CFF8A', co:'#FFE55C' };
+const ovG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
+svg.insertBefore(ovG, bodyPath);
+const ovState = { game:null, byGame:{ loto7:{sel:[], active:null}, loto6:{sel:[], active:null} } };
+
+function isOverlayTrack(){ return typeof trackKey === 'string' && trackKey in OV_TRACKS; }
+function ovSt(){ return ovState.byGame[ovState.game]; }
+function ovKind(key){ return key.split(':')[0]; }
+function ovColor(key){ return OV_COLORS[ovKind(key)]; }
+function ovFreeKey(game){ return game === 'loto6' ? 'freeLoto6' : 'freeLoto7'; }
+function ovCoKey(game){ return game === 'loto6' ? 'freeCarry6' : 'freeCarry7'; }
+function ovName(key){
+  const [k, v] = key.split(':');
+  return k === 'all' ? `全回 自由${Number(v)+1}` : k === 'ball' ? `セット球 ${v}` : 'CO配置';
+}
+function ovCount(){ return ovState.game === 'loto6' ? 6 : 7; }
+// 最新の当選ライン（各コーナーの最新）
+function ovRef(key){
+  const g = ovState.game, [k, v] = key.split(':');
+  if(k === 'all') return latestValuesFor(ovFreeKey(g));
+  if(k === 'co') return latestValuesFor(ovCoKey(g));
+  const rows = ballAll(g).filter(r=>r[1] === v);
+  return rows.length ? ballSorted(rows[rows.length-1][2]) : null;
+}
+// 元コーナーに保存された予想（なければ null）
+function ovSource(key){
+  const g = ovState.game, [k, v] = key.split(':'), n = ovCount();
+  if(k === 'all'){
+    const st = ensureFreePatternState(ovFreeKey(g));
+    const idx = Number(v);
+    return (st.touched[idx] && st.values[idx] && st.values[idx].length === n) ? st.values[idx].slice() : null;
+  }
+  if(k === 'ball'){
+    const e = ballLoad(BALL_FREE_KEY, {})[g + ':' + v];
+    return (e && Array.isArray(e.values) && e.values.length === n) ? e.values.slice() : null;
+  }
+  const fs = freeStateStore[ovCoKey(g)];
+  if(fs && fs.basePts && fs.basePts.length === n) return fs.basePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1])));
+  return null;
+}
+function ovLoadStore(){ return ballLoad(OV_STORE_KEY, {}); }
+function ovOwn(key){
+  const e = (ovLoadStore()[ovState.game] || {})[key];
+  return (e && Array.isArray(e.values) && e.values.length === ovCount()) ? e.values.slice() : null;
+}
+function ovValues(key){ return ovOwn(key) || ovSource(key) || ovRef(key) || []; }
+function ovHasPrediction(key){ return !!(ovOwn(key) || ovSource(key)); }
+
+function ovClear(){
+  while(ovG.firstChild) ovG.removeChild(ovG.firstChild);
+  freePath.setAttribute('stroke', 'url(#bodyGrad)');
+  if(ovState.game){ ovExitActive(true); }
+  document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; });
+  ovState.game = null;
+}
+function ovExitActive(silent){
+  freePath.setAttribute('d','');
+  while(freePointsG.firstChild) freePointsG.removeChild(freePointsG.firstChild);
+  freeHandles = [];
+  freeDraggingIndex = -1;
+  freePointerActive = false;
+  if(!silent){
+    centroidCore.style.opacity = '0'; centroidHalo.style.opacity = '0';
+    ['mCentroid','mNN','mGap','mOdd','mSum','pMeanNN','pGap','pSum'].forEach(id=>{ const e = document.getElementById(id); if(e) e.textContent = '—'; });
+    document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = 'none'; });
+  }
+}
+
+function renderOverlayView(game){
+  ovState.game = game;
+  document.getElementById('overlayBanner').style.display = 'block';
+  const st = ovSt();
+  // 球に履歴がなくなっていたら外す
+  st.sel = st.sel.filter(k=> ovKind(k) !== 'ball' || ovRef(k));
+  if(st.active && st.sel.indexOf(st.active) < 0) st.active = st.sel.length ? st.sel[st.sel.length-1] : null;
+  ovRender();
+}
+
+function ovRender(){
+  const st = ovSt(), g = ovState.game;
+  freeReadOnly = false; freeActiveManualIndex = -1;
+  while(ovG.firstChild) ovG.removeChild(ovG.firstChild);
+  st.sel.forEach(key=>{
+    const col = ovColor(key);
+    const ref = ovRef(key);
+    if(ref){
+      const rp = ref.map(gridXY);
+      ovG.appendChild(el('path',{d:catmullRomPath(rp), fill:'none', stroke:col, ['stroke-width']:1.3, ['stroke-dasharray']:'4,4', opacity:0.28}));
+      rp.forEach(([x,y])=> ovG.appendChild(el('circle',{cx:x, cy:y, r:5, fill:'none', stroke:col, ['stroke-width']:1, opacity:0.32})));
+    }
+    if(key !== st.active){
+      const pts = ovValues(key).map(gridXY);
+      ovG.appendChild(el('path',{d:catmullRomPath(pts), fill:'none', stroke:col, ['stroke-width']:2, opacity:0.75}));
+      pts.forEach(([x,y])=> ovG.appendChild(el('circle',{cx:x, cy:y, r:4.5, fill:col, opacity:0.8})));
+    }
+  });
+  if(st.active) ovEnterActive(); else { ovExitActive(false); ovPanelNone(); }
+  ovRenderButtons();
+  ovRenderLegend();
+}
+
+function ovEnterActive(){
+  const st = ovSt(), key = st.active, col = ovColor(key);
+  freeBasePts = ovValues(key).map(gridXY);
+  freeOriginalPts = null;
+  freePath.setAttribute('stroke', col);
+  document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; });
+  while(freePointsG.firstChild) freePointsG.removeChild(freePointsG.firstChild);
+  freeHandles = [];
+  freeBasePts.forEach((pt, i)=>{
+    const visible = el('circle',{r:7, fill:col, opacity:0.95, filter:'url(#neonGlow)'});
+    const hit = el('circle',{r:26, fill:'#FFFFFF', opacity:0.001, style:'touch-action:pinch-zoom; cursor:grab;'});
+    hit.dataset.idx = i;
+    freePointsG.appendChild(visible);
+    freePointsG.appendChild(hit);
+    freeHandles.push({visible, hit});
+    hit.addEventListener('pointerdown', (evt)=>{
+      if(!isOverlayTrack()) return;
+      evt.preventDefault();
+      freePointerActive = true;
+      freeDraggingIndex = i;
+      freeDragStart = clientToSvgPoint(evt);
+      freeDragStartPt = [...freeBasePts[i]];
+      hit.setPointerCapture(evt.pointerId);
+      hit.style.cursor = 'grabbing';
+    });
+  });
+  renderFreeFrame();
+}
+
+function ovPanelNone(){
+  document.getElementById('drawId').textContent = `重ね見 ・${ovState.game === 'loto6' ? 'ロト6' : 'ロト7'}`;
+  document.getElementById('drawDate').textContent = 'ボタンを押すとラインが重なります（いまは何も選んでいません）';
+  document.getElementById('mainNums').innerHTML = '';
+  document.getElementById('bonusNums').innerHTML = '';
+  document.getElementById('shapeMetricNote').textContent = '重ね見では、動かす線の指標だけを表示します。';
+  document.getElementById('trailTitle').textContent = 'Centroid Drift';
+  while(trailSvg.firstChild) trailSvg.removeChild(trailSvg.firstChild);
+}
+function ovPanelActive(values){
+  const st = ovSt(), key = st.active;
+  document.getElementById('drawId').textContent = `重ね見 ・${ovName(key)}`;
+  document.getElementById('drawDate').textContent = `${st.sel.length}本表示中。点をドラッグして動かせます`;
+  document.getElementById('bonusNums').innerHTML = '';
+  document.getElementById('mainNums').innerHTML = values.map(v=>`<span class="num-chip">${String(Math.round(v)).padStart(2,'0')}</span>`).join('');
+  document.getElementById('shapeMetricNote').textContent = '重ね見では、動かす線の指標だけを表示します。';
+  document.getElementById('trailTitle').textContent = 'Centroid Drift';
+  while(trailSvg.firstChild) trailSvg.removeChild(trailSvg.firstChild);
+  const l = document.querySelector('#ovLegend .ov-row.act .ov-nums');
+  if(l) l.firstChild.textContent = values.map(v=>String(Math.round(v)).padStart(2,'0')).join(' ');
+}
+
+function ovSaveActive(){
+  const st = ovSt(), key = st.active;
+  if(!key) return;
+  const store = ovLoadStore();
+  store[ovState.game] = store[ovState.game] || {};
+  store[ovState.game][key] = { values: freeBasePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1]))) };
+  ballSave(OV_STORE_KEY, store);
+  renderFreeFrame();
+  ovRenderLegend();
+}
+
+function ovToggle(key){
+  const st = ovSt();
+  const i = st.sel.indexOf(key);
+  if(i < 0){
+    if(st.sel.length >= OV_MAX){ document.getElementById('ovCount').textContent = `最大${OV_MAX}本までです。どれかを外してください`; return; }
+    st.sel.push(key); st.active = key;
+  } else if(st.active !== key){
+    st.active = key;                       // 選択済みを押すと「動かす線」に切り替え
+  } else {
+    st.sel.splice(i, 1);                   // 動かす線をもう一度押すと外す
+    st.active = st.sel.length ? st.sel[st.sel.length-1] : null;
+  }
+  ovRender();
+}
+
+function ovRenderButtons(){
+  const st = ovSt(), g = ovState.game, n10 = 10;
+  const mk = (key, label, kind, disabled)=>{
+    const sel = st.sel.indexOf(key) >= 0;
+    return `<button type="button" class="ov-btn ${kind}${sel ? ' sel' : ''}${st.active === key ? ' act' : ''}" data-ov="${key}"${disabled ? ' disabled' : ''}>${label}</button>`;
+  };
+  let a = ''; for(let i=0;i<n10;i++) a += mk('all:'+i, String(i+1), 'blue');
+  document.getElementById('ovBtnsAll').innerHTML = a;
+  document.getElementById('ovBtnsBall').innerHTML = BALL_LETTERS.map(b=> mk('ball:'+b, b, 'green', !ballAll(g).some(r=>r[1] === b))).join('');
+  document.getElementById('ovBtnsCo').innerHTML = mk('co', 'CO配置', 'yellow');
+  document.querySelectorAll('#overlayBanner .ov-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> ovToggle(btn.dataset.ov));
+  });
+  document.getElementById('ovCount').textContent = `表示中 ${st.sel.length} / ${OV_MAX} 本`;
+}
+
+function ovRenderLegend(){
+  const st = ovSt();
+  const box = document.getElementById('ovLegend');
+  box.innerHTML = st.sel.map(key=>{
+    const vals = ovValues(key);
+    const nums = vals.map(v=>String(Math.round(v)).padStart(2,'0')).join(' ');
+    const own = !!ovOwn(key);
+    const stateTxt = own ? '重ね見で動かした形' : (ovSource(key) ? '元コーナーの予想' : '最新の当選ラインと同じ');
+    return `<div class="ov-row${st.active === key ? ' act' : ''}" data-ov="${key}"><span class="ov-dot" style="color:${ovColor(key)}">●</span><span class="ov-name">${ovName(key)}</span><span class="ov-nums"><span>${nums}</span><span class="ov-state">${stateTxt}</span></span><button type="button" data-reset="${key}"${own ? '' : ' disabled'}>戻す</button></div>`;
+  }).join('');
+  box.querySelectorAll('.ov-row').forEach(row=>{
+    row.addEventListener('click', (e)=>{
+      if(e.target.closest('button')) return;
+      const key = row.dataset.ov;
+      if(st.active !== key){ st.active = key; ovRender(); }
+    });
+  });
+  box.querySelectorAll('button[data-reset]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const key = b.dataset.reset;
+      const store = ovLoadStore();
+      if(store[ovState.game]) delete store[ovState.game][key];
+      ballSave(OV_STORE_KEY, store);
+      ovRender();
+    });
+  });
+}
 
 // ---- Draft draws & predictions (device-local, offline-editable) -------
 // Two kinds of drafts, both stored only in this browser's localStorage,
