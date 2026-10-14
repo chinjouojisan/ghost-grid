@@ -4030,6 +4030,8 @@ function setBall(game, ball){
   renderBallLegend();
   render(N-1);
   if(N >= 2) drawTrail();
+  // 動かして保存した自由ラインがあるときは、戻ってきた時にその形をすぐ表示する
+  if(ballFreeValues().touched){ scrub.value = N; ballGoStep(N, false); }
 }
 
 function renderBallPicker(){
@@ -4061,6 +4063,15 @@ function renderBallLegend(){
   const legendBox = document.getElementById('ballLegend');
   legendBox.className = 'ball-legend' + (N > 5 ? ' dense' : '');
   legendBox.innerHTML = html;
+  const fnEl = document.getElementById('ballFreeNums');
+  if(fnEl && N){
+    const fv = ballFreeValues();
+    fnEl.textContent = fv.values.map(v=>String(v).padStart(2,'0')).join(' ') + (fv.touched ? '（保存済み）' : '');
+  }
+  legendBox.querySelectorAll('.ball-legend-row').forEach(row=>{
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', ()=>{ stopPlay(); ballGoStep(Number(row.dataset.i), false); });
+  });
   ballHighlight(ballState.step);
 }
 function ballHighlight(idx){
