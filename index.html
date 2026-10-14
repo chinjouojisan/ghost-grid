@@ -1485,7 +1485,7 @@ function goTo(idx, animate=true){
   const to = idx;
   if(from === to){ render(to); currentIdx = to; return; }
   updateTrailLayer(from);
-  const duration = (isBallTrack() && ballState.keep > 4) ? 1100 : (trailMode ? 2000 : 1000);
+  const duration = (isBallTrack() && ballState.keep > 4) ? 2200 : (trailMode ? 2000 : 1000);
   let startTime = null;
   function step(now){
     if(startTime === null) startTime = now;
@@ -1549,7 +1549,7 @@ playBtn.onclick = ()=>{
     playTimer = setInterval(()=>{
       if(ballState.step >= ballState.rows.length){ stopPlay(); return; }
       ballNav(1);
-    }, ballState.keep > 4 ? 1500 : 2600);
+    }, ballState.keep > 4 ? 3000 : 2600);
   } else {
     if(currentIdx >= draws.length-1){ goTo(0, false); }
     playTimer = setInterval(()=>{
@@ -4387,7 +4387,7 @@ document.getElementById('heatPlayBtn').addEventListener('click', ()=>{
   heatTimer = setInterval(()=>{
     if(heatState.shown >= heatState.rows.length){ heatStopTimer(); return; }
     renderHeatFrame(heatState.shown + 1);
-  }, 650);
+  }, 1300);
 });
 
 
