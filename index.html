@@ -86,6 +86,21 @@
   .track-tabs-wrap{
     margin-bottom: 16px;
   }
+  .acc{ border:1px solid var(--grid-line); border-radius:6px; margin-bottom:8px; background:rgba(255,255,255,0.015); }
+  .acc-head{
+    width:100%; display:flex; align-items:center; gap:10px; padding:11px 14px;
+    background:transparent; border:0; color:var(--text); cursor:pointer;
+    font-family:'Space Mono', monospace; font-size:13px; letter-spacing:0.04em; text-align:left;
+  }
+  .acc-title{ font-weight:700; }
+  .acc-cur{ flex:1 1 auto; min-width:0; font-size:11px; color:var(--cyan); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .acc-arrow{ color:var(--text-dim); transition:transform 0.2s; }
+  .acc.open .acc-arrow{ transform:rotate(180deg); }
+  .acc.has-active{ border-color:rgba(111,245,255,0.45); }
+  .acc-body{ display:none; padding:0 12px 12px; }
+  .acc.open .acc-body{ display:block; }
+  .acc-tabs{ display:flex; flex-wrap:wrap; gap:8px; }
+  .acc-tabs .tab-btn{ padding:7px 14px; }
   .track-tabs-row{
     display: flex;
     align-items: center;
@@ -454,7 +469,8 @@
   .ball-legend.dense .ball-legend-row{ padding:1px 6px; font-size:10px; gap:6px; }
   .ball-legend.dense .ball-legend-no{ min-width:56px; }
   .heat-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
-  .heat-controls label{ display:flex; align-items:center; gap:8px; flex:1 1 190px; color:var(--text); }
+  .heat-controls label{ display:flex; align-items:center; gap:6px; flex:1 1 190px; color:var(--text); white-space:nowrap; }
+  .heat-controls input[type=range]{ flex:1 1 80px; min-width:70px; }
   .heat-controls label b{ min-width:18px; text-align:right; color:var(--cyan); }
   .heat-controls button{ font-size:11px; padding:6px 12px; border-radius:999px; }
   .heat-mode .grid-num, .heat-mode .cell-dot{ display:none; }
@@ -697,52 +713,61 @@
   <div class="layout">
     <div class="stage">
       <div class="track-tabs-wrap">
-        <div class="track-tabs-row">
-          <span class="row-label">ロト7</span>
-          <div class="track-tabs">
+        <div class="acc" data-acc="loto7">
+          <button type="button" class="acc-head"><span class="acc-title">ロト7</span><span class="acc-cur"></span><span class="acc-arrow">▾</span></button>
+          <div class="acc-body"><div class="acc-tabs">
             <button class="tab-btn active" data-track="allTrail">全パターン</button>
             <button class="tab-btn" data-track="freeLoto7">自由配置</button>
+            <button class="tab-btn" data-track="ballAllLoto7">4+1</button>
+            <button class="tab-btn" data-track="nineAllLoto7">9+1</button>
+            <button class="tab-btn" data-track="heatAllLoto7">重複</button>
+            <button class="tab-btn" data-track="heat10AllLoto7">重複10</button>
+            <button class="tab-btn" data-track="heat20AllLoto7">重複20</button>
             <button class="tab-btn" data-track="avgLoto7">アベレージ</button>
             <button class="tab-btn" data-track="predictionLog7">予想ログ</button>
             <button class="tab-btn" data-track="ghost">予想ゴースト</button>
             <button class="tab-btn" data-track="carryover">キャリーオーバー当選</button>
-            <button class="tab-btn" data-track="avgCarryover7">アベレージ</button>
+            <button class="tab-btn" data-track="avgCarryover7">COアベレージ</button>
             <button class="tab-btn" data-track="freeCarry7">CO配置</button>
-          </div>
+          </div></div>
         </div>
-        <div class="track-tabs-row">
-          <span class="row-label">ロト6</span>
-          <div class="track-tabs">
+        <div class="acc" data-acc="ball7">
+          <button type="button" class="acc-head"><span class="acc-title">セット球 ロト7</span><span class="acc-cur"></span><span class="acc-arrow">▾</span></button>
+          <div class="acc-body"><div class="acc-tabs">
+            <button class="tab-btn" data-track="ballLoto7">4+1</button>
+            <button class="tab-btn" data-track="nineLoto7">9+1</button>
+            <button class="tab-btn" data-track="heatLoto7">重複</button>
+            <button class="tab-btn" data-track="heat10Loto7">重複10</button>
+            <button class="tab-btn" data-track="heat20Loto7">重複20</button>
+          </div></div>
+        </div>
+        <div class="acc" data-acc="loto6">
+          <button type="button" class="acc-head"><span class="acc-title">ロト6</span><span class="acc-cur"></span><span class="acc-arrow">▾</span></button>
+          <div class="acc-body"><div class="acc-tabs">
             <button class="tab-btn" data-track="loto6Trail">全パターン</button>
             <button class="tab-btn" data-track="freeLoto6">自由配置</button>
+            <button class="tab-btn" data-track="ballAllLoto6">4+1</button>
+            <button class="tab-btn" data-track="nineAllLoto6">9+1</button>
+            <button class="tab-btn" data-track="heatAllLoto6">重複</button>
+            <button class="tab-btn" data-track="heat10AllLoto6">重複10</button>
+            <button class="tab-btn" data-track="heat20AllLoto6">重複20</button>
             <button class="tab-btn" data-track="avgLoto6">アベレージ</button>
             <button class="tab-btn" data-track="predictionLog6">予想ログ</button>
             <button class="tab-btn" data-track="ghostLoto6">予想ゴースト</button>
             <button class="tab-btn" data-track="loto6carryover">キャリーオーバー当選</button>
-            <button class="tab-btn" data-track="avgCarryover6">アベレージ</button>
+            <button class="tab-btn" data-track="avgCarryover6">COアベレージ</button>
             <button class="tab-btn" data-track="freeCarry6">CO配置</button>
-          </div>
+          </div></div>
         </div>
-        <div class="track-tabs-row">
-          <span class="row-label">4+1</span>
-          <div class="track-tabs">
-            <button class="tab-btn" data-track="ballLoto7">セット球 ロト7</button>
-            <button class="tab-btn" data-track="ballLoto6">セット球 ロト6</button>
-          </div>
-        </div>
-        <div class="track-tabs-row">
-          <span class="row-label">9+1</span>
-          <div class="track-tabs">
-            <button class="tab-btn" data-track="nineLoto7">セット球 ロト7</button>
-            <button class="tab-btn" data-track="nineLoto6">セット球 ロト6</button>
-          </div>
-        </div>
-        <div class="track-tabs-row">
-          <span class="row-label">重複</span>
-          <div class="track-tabs">
-            <button class="tab-btn" data-track="heatLoto7">セット球 ロト7</button>
-            <button class="tab-btn" data-track="heatLoto6">セット球 ロト6</button>
-          </div>
+        <div class="acc" data-acc="ball6">
+          <button type="button" class="acc-head"><span class="acc-title">セット球 ロト6</span><span class="acc-cur"></span><span class="acc-arrow">▾</span></button>
+          <div class="acc-body"><div class="acc-tabs">
+            <button class="tab-btn" data-track="ballLoto6">4+1</button>
+            <button class="tab-btn" data-track="nineLoto6">9+1</button>
+            <button class="tab-btn" data-track="heatLoto6">重複</button>
+            <button class="tab-btn" data-track="heat10Loto6">重複10</button>
+            <button class="tab-btn" data-track="heat20Loto6">重複20</button>
+          </div></div>
         </div>
       </div>
       <div class="draft-bar">
@@ -776,11 +801,11 @@
       <div id="heatBanner" class="ghost-banner" style="display:none;">
         <div id="heatPicker" class="ball-picker"></div>
         <div class="heat-controls">
-          <label>直近 <b id="heatNLabel">10</b> 回 <input id="heatN" type="range" min="5" max="20" step="1" value="10"></label>
+          <label><span id="heatNPre">直近</span> <b id="heatNLabel">10</b><span id="heatNPost"> 回</span> <input id="heatN" type="range" min="5" max="20" step="1" value="10"></label>
           <button id="heatPlayBtn" type="button">▶ 積み上げ</button>
           <button id="heatLinesBtn" type="button" class="overlay-toggle-btn mist active">ライン</button>
         </div>
-        <div class="ball-note">選んだセット球が使われた直近の回（ボーナス数字は含みません）で、同じ数字が重なった回数を光の大きさで表します。2回=水色、3回=白、4回以上=ピンク。点線の輪は一度も出ていない数字（隙間）です。回数の偏りは偶然でも起きるため、当選数字の予測ではありません。</div>
+        <div class="ball-note" id="heatNote"></div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -1337,7 +1362,7 @@ function updatePanel(idx){
   scrub.value = idx;
   updateGauges(idx);
   if(isBallTrack() && ballState.rows.length){
-    document.getElementById('drawId').textContent = `第${d.no}回 ・${ballState.ball}セット`;
+    document.getElementById('drawId').textContent = `第${d.no}回 ・${scopeShort(ballState.ball)}`;
     ballHighlight(idx);
   }
 }
@@ -2944,8 +2969,8 @@ function renderFreeFrame(){
   const sum = values.reduce((a,b)=>a+b,0);
 
   if(isBallTrack()){
-    document.getElementById('drawId').textContent = `自由ライン ・${ballState.ball}セット`;
-    document.getElementById('drawDate').textContent = ballState.freeTouched ? '動かした形はこの端末に保存されています' : '4本目と同じ位置から。点をドラッグして動かせます';
+    document.getElementById('drawId').textContent = `自由ライン ・${scopeShort(ballState.ball)}`;
+    document.getElementById('drawDate').textContent = ballState.freeTouched ? '動かした形はこの端末に保存されています' : `${ballState.keep}本目と同じ位置から。点をドラッグして動かせます`;
     const fn = document.getElementById('ballFreeNums');
     if(fn) fn.textContent = values.map(v=>String(Math.round(v)).padStart(2,'0')).join(' ');
   } else {
@@ -3658,6 +3683,7 @@ function setTrack(key){
   document.querySelectorAll('.tab-btn').forEach(b=>{
     b.classList.toggle('active', b.dataset.track === key);
   });
+  if(typeof accSync === 'function') accSync();
 
   if(key === 'predictionLog7' || key === 'predictionLog6'){
     clearDynamicLayers();
@@ -3691,7 +3717,7 @@ function setTrack(key){
     const bGame = bCfg.game;
     setGridColumns(5, bGame === 'loto6' ? 43 : 37);
     setBaselineGame(bGame);
-    renderBallView(bGame, bCfg.keep);
+    renderBallView(bGame, bCfg.keep, !!bCfg.all);
     return;
   }
 
@@ -3703,10 +3729,11 @@ function setTrack(key){
     document.getElementById('carryoverAvgBanner').style.display = 'none';
     document.getElementById('controlsBlock').style.display = 'none';
     document.getElementById('timelineTicks').style.display = 'none';
-    const hGame = HEAT_TRACKS[key];
+    const hCfg = HEAT_TRACKS[key];
+    const hGame = hCfg.game;
     setGridColumns(5, hGame === 'loto6' ? 43 : 37);
     setBaselineGame(hGame);
-    renderHeatView(hGame);
+    renderHeatView(hGame, hCfg);
     return;
   }
 
@@ -3808,8 +3835,28 @@ document.getElementById('ghostIsoSlider').addEventListener('input', (e)=>{
 });
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=> setTrack(btn.dataset.track));
+  btn.addEventListener('click', ()=>{
+    setTrack(btn.dataset.track);
+    document.querySelectorAll('.acc').forEach(x=> x.classList.remove('open'));   // 選んだら畳んで、グリッドを見やすく
+  });
 });
+
+// ---- アコーディオン（4コーナー：ロト7 / セット球ロト7 / ロト6 / セット球ロト6）----
+function accSync(){
+  document.querySelectorAll('.acc').forEach(a=>{
+    const act = a.querySelector('.tab-btn.active');
+    a.classList.toggle('has-active', !!act);
+    a.querySelector('.acc-cur').textContent = act ? '— ' + act.textContent : '';
+  });
+}
+document.querySelectorAll('.acc-head').forEach(h=>{
+  h.addEventListener('click', ()=>{
+    const a = h.parentElement, willOpen = !a.classList.contains('open');
+    document.querySelectorAll('.acc').forEach(x=> x.classList.remove('open'));
+    if(willOpen) a.classList.add('open');
+  });
+});
+accSync();
 
 // ---- セット球コーナー（ballLoto7 / ballLoto6）----------------------------------
 // data.json の draws（回号・セット球・本数字・ボーナス・日付）から、選んだセット球が
@@ -3818,12 +3865,17 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // できる。自由ラインはロト別・セット球別に1本、この端末の localStorage に保存。
 const BALL_TRACKS = {
   ballLoto7:{game:'loto7', keep:4}, ballLoto6:{game:'loto6', keep:4},
-  nineLoto7:{game:'loto7', keep:9}, nineLoto6:{game:'loto6', keep:9}
+  nineLoto7:{game:'loto7', keep:9}, nineLoto6:{game:'loto6', keep:9},
+  ballAllLoto7:{game:'loto7', keep:4, all:true}, ballAllLoto6:{game:'loto6', keep:4, all:true},
+  nineAllLoto7:{game:'loto7', keep:9, all:true}, nineAllLoto6:{game:'loto6', keep:9, all:true}
 };
+const SCOPE_ALL = 'ALL';   // ball === 'ALL' → セット球を問わない全抽選の連続
+function scopeRows(game, ball){ return ball === SCOPE_ALL ? ballAll(game) : ballAll(game).filter(r=>r[1] === ball); }
+function scopeShort(ball){ return ball === SCOPE_ALL ? '全抽選' : ball + 'セット'; }
 const BALL_LETTERS = ['A','B','C','D','E','F','G','H','I','J'];
 const BALL_FREE_KEY = 'ggBallFree_v1';
 const BALL_SEL_KEY = 'ggBallSel_v1';
-const ballState = { game:null, ball:null, rows:[], step:-1, freeTouched:false, keep:4 };
+const ballState = { game:null, ball:null, rows:[], step:-1, freeTouched:false, keep:4, all:false };
 const ballTrailG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
 svg.insertBefore(ballTrailG, bodyPath);
 
@@ -3850,12 +3902,20 @@ function ballResetState(){
   ballState.step = -1;
 }
 
-function renderBallView(game, keep){
+function renderBallView(game, keep, allScope){
   ballState.keep = keep || 4;
+  ballState.all = !!allScope;
   document.getElementById('ballBanner').style.display = 'block';
   { const k = ballState.keep;
-    document.getElementById('ballNote').textContent = `選んだセット球が直近で使われた${k}回を、古い順に薄くして重ねます。▶ で${k}回分が連続で動き、${k}本残ったあと、${k+1}本目の「自由ライン」（点をドラッグ）を動かせます。自由ラインは球ごとに1本、この端末に保存されます。当選数字の予測ではありません。`; }
+    const what = allScope ? 'セット球を問わず、直近の' : '選んだセット球が直近で使われた';
+    document.getElementById('ballNote').textContent = `${what}${k}回を、古い順に薄くして重ねます。▶ で${k}回分が連続で動き、${k}本残ったあと、${k+1}本目の「自由ライン」（点をドラッグ）を動かせます。自由ラインは球ごとに1本、この端末に保存されます。当選数字の予測ではありません。`; }
   const all = ballAll(game);
+  document.getElementById('ballPicker').style.display = allScope ? 'none' : '';
+  if(allScope){
+    if(!all.length){ document.getElementById('ballLegend').innerHTML = '<div class="ball-empty">抽選データがありません。</div>'; return; }
+    setBall(game, SCOPE_ALL);
+    return;
+  }
   if(!all.some(r=>r[1])){
     ballState.game = game; ballState.rows = []; ballState.step = -1;
     document.getElementById('ballPicker').innerHTML = '';
@@ -3877,13 +3937,13 @@ function renderBallView(game, keep){
 
 function setBall(game, ball){
   stopPlay();
-  const rows = ballAll(game).filter(r=>r[1] === ball).slice(-ballState.keep);
+  const rows = scopeRows(game, ball).slice(-ballState.keep);
   ballState.game = game; ballState.ball = ball; ballState.rows = rows; ballState.freeTouched = false;
-  const sel = ballLoad(BALL_SEL_KEY, {}); sel[game] = ball; ballSave(BALL_SEL_KEY, sel);
+  if(ball !== SCOPE_ALL){ const sel = ballLoad(BALL_SEL_KEY, {}); sel[game] = ball; ballSave(BALL_SEL_KEY, sel); }
   exitBallFree();
   ballResetState();
   while(prevTrailG.firstChild) prevTrailG.removeChild(prevTrailG.firstChild);
-  renderBallPicker();
+  if(ball !== SCOPE_ALL) renderBallPicker();
   const N = rows.length;
   if(!N){
     ballState.step = -1;
@@ -3903,7 +3963,7 @@ function setBall(game, ball){
   document.getElementById('timelineTicks').innerHTML = (N > 5)
     ? rows.map((r,i)=>`<span>${(i === 0 || i === N-1) ? '第' + r[0] + '回' : r[0]}</span>`).join('') + '<span>自由</span>'
     : rows.map(r=>`<span>第${r[0]}回</span>`).join('') + '<span>自由</span>';
-  document.getElementById('trailTitle').textContent = `Centroid Drift — セット球${ball}（直近${N}回）`;
+  document.getElementById('trailTitle').textContent = `Centroid Drift — ${ball === SCOPE_ALL ? '全抽選' : 'セット球' + ball}（直近${N}回）`;
   scrub.max = N;
   ballState.step = N-1;
   currentIdx = N-1;
@@ -4062,14 +4122,21 @@ document.getElementById('ballResetBtn').addEventListener('click', ()=>{
 // 選んだセット球が使われた直近N回（ボーナス数字は含めない）の本数字を数え、同じ数字が
 // 重なった回数を、マスの光の大きさと色で表す。0回のマスは点線の輪（隙間）。
 // N本のラインは薄く重ねて表示（オンオフ可）。「積み上げ」で1回ずつ増やして見られる。
-const HEAT_TRACKS = { heatLoto7:'loto7', heatLoto6:'loto6' };
+const HEAT_TRACKS = {
+  heatLoto7:{game:'loto7'}, heatLoto6:{game:'loto6'},
+  heatAllLoto7:{game:'loto7', all:true}, heatAllLoto6:{game:'loto6', all:true},
+  heat10Loto7:{game:'loto7', fixed:10}, heat10Loto6:{game:'loto6', fixed:10},
+  heat20Loto7:{game:'loto7', fixed:20}, heat20Loto6:{game:'loto6', fixed:20},
+  heat10AllLoto7:{game:'loto7', fixed:10, all:true}, heat10AllLoto6:{game:'loto6', fixed:10, all:true},
+  heat20AllLoto7:{game:'loto7', fixed:20, all:true}, heat20AllLoto6:{game:'loto6', fixed:20, all:true}
+};
 const HEAT_CFG_KEY = 'ggHeatCfg_v1';
 const HEAT_MIN = 5, HEAT_MAX = 20;
 const heatLinesG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
 const heatDotsG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
 svg.insertBefore(heatLinesG, dotsG);
 svg.insertBefore(heatDotsG, dotsG);
-const heatState = { game:null, ball:null, n:10, lines:true, shown:0, rows:[] };
+const heatState = { game:null, ball:null, n:10, lines:true, shown:0, rows:[], all:false, fixed:0 };
 let heatTimer = null;
 
 function heatStopTimer(){
@@ -4084,9 +4151,10 @@ function heatClear(){
   svg.classList.remove('heat-mode');
   document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; });
 }
+function heatCfgKey(){ return heatState.game + (heatState.all ? ':all' : '') + (heatState.fixed ? ':f' + heatState.fixed : ''); }
 function heatSaveCfg(){
   const cfg = ballLoad(HEAT_CFG_KEY, {});
-  cfg[heatState.game] = { n: heatState.n, lines: heatState.lines };
+  cfg[heatCfgKey()] = { n: heatState.n, lines: heatState.lines };
   ballSave(HEAT_CFG_KEY, cfg);
 }
 function heatDefaultBall(game){
@@ -4094,12 +4162,16 @@ function heatDefaultBall(game){
   return BALL_LETTERS.slice().sort((a,b)=> (ballWait(stats,b) < 0 ? 1e9 : ballWait(stats,b)) - (ballWait(stats,a) < 0 ? 1e9 : ballWait(stats,a)))[0];
 }
 
-function renderHeatView(game){
+function renderHeatView(game, hc){
+  hc = hc || {};
   document.getElementById('heatBanner').style.display = 'block';
-  heatState.game = game;
-  const cfg = ballLoad(HEAT_CFG_KEY, {})[game] || {};
-  heatState.n = Math.max(HEAT_MIN, Math.min(HEAT_MAX, Number(cfg.n) || (game === 'loto6' ? 10 : 9)));
+  heatState.game = game; heatState.all = !!hc.all; heatState.fixed = hc.fixed || 0;
+  const cfg = ballLoad(HEAT_CFG_KEY, {})[heatCfgKey()] || {};
+  heatState.n = heatState.fixed || Math.max(HEAT_MIN, Math.min(HEAT_MAX, Number(cfg.n) || (game === 'loto6' ? 10 : 9)));
   heatState.lines = cfg.lines !== false;
+  heatNote();
+  document.getElementById('heatPicker').style.display = heatState.all ? 'none' : '';
+  if(heatState.all){ heatState.ball = SCOPE_ALL; heatRefresh(); return; }
   if(!ballAll(game).some(r=>r[1])){
     heatState.rows = [];
     document.getElementById('heatPicker').innerHTML = '<div class="ball-empty">セット球つきのデータがまだありません。data.json の自動更新（update-data）が動くと表示されます。</div>';
@@ -4117,11 +4189,33 @@ function setHeatBall(game, ball){
   renderPickerInto('heatPicker', game, ball, (b)=> setHeatBall(game, b));
   heatRefresh();
 }
+function heatNote(){
+  const what = heatState.all ? 'セット球を問わず、直近' : '選んだセット球が使われた直近';
+  const base = '（ボーナス数字は含みません）で、同じ数字が重なった回数を光の大きさで表します。2回=水色、3回=白、4回以上=ピンク。点線の輪は一度も出ていない数字（隙間）です。回数の偏りは偶然でも起きるため、当選数字の予測ではありません。';
+  document.getElementById('heatNote').textContent = heatState.fixed
+    ? `${what}${heatState.fixed}回${base} ▶ 積み上げ、またはスライダーで、古い回から順に重ねて見られます。`
+    : `${what}の回${base}`;
+}
+function heatSyncFixed(){
+  if(!heatState.fixed) return;
+  const r = document.getElementById('heatN');
+  r.value = heatState.shown;
+  document.getElementById('heatNLabel').textContent = heatState.shown;
+  document.getElementById('heatNPost').textContent = ` / ${heatState.rows.length}`;
+}
 function heatRefresh(){
   heatStopTimer();
-  heatState.rows = ballAll(heatState.game).filter(r=>r[1] === heatState.ball).slice(-heatState.n);
-  document.getElementById('heatN').value = heatState.n;
-  document.getElementById('heatNLabel').textContent = heatState.n;
+  heatState.rows = scopeRows(heatState.game, heatState.ball).slice(-heatState.n);
+  const r = document.getElementById('heatN');
+  if(heatState.fixed){
+    document.getElementById('heatNPre').textContent = '積み上げ';
+    r.min = 0; r.max = heatState.rows.length;
+  }else{
+    document.getElementById('heatNPre').textContent = '直近';
+    document.getElementById('heatNPost').textContent = ' 回';
+    r.min = HEAT_MIN; r.max = HEAT_MAX; r.value = heatState.n;
+    document.getElementById('heatNLabel').textContent = heatState.n;
+  }
   document.getElementById('heatLinesBtn').classList.toggle('active', heatState.lines);
   svg.classList.add('heat-mode');
   renderHeatFrame(heatState.rows.length);
@@ -4174,6 +4268,7 @@ function renderHeatFrame(upto){
       t.textContent = '×' + c; heatDotsG.appendChild(t);
     }
   }
+  heatSyncFixed();
   heatPanel(cnt, upto, maxN);
 }
 
@@ -4183,7 +4278,7 @@ function heatPanel(cnt, upto, maxN){
   const hi = [], zero = [];
   for(let n=1;n<=maxN;n++){ if(cnt[n] >= 3) hi.push([n, cnt[n]]); if(cnt[n] === 0) zero.push(n); }
   hi.sort((a,b)=> b[1]-a[1] || a[0]-b[0]);
-  document.getElementById('drawId').textContent = `重複 ・${heatState.ball}セット`;
+  document.getElementById('drawId').textContent = `重複${heatState.fixed || ''} ・${scopeShort(heatState.ball)}`;
   document.getElementById('drawDate').textContent = rows.length
     ? `直近${rows.length}回（第${rows[0][0]}〜${rows[rows.length-1][0]}回）` + (upto < rows.length ? ` ／ ${upto}回目まで` : '')
     : 'このセット球の履歴がありません';
@@ -4202,6 +4297,7 @@ function heatPanel(cnt, upto, maxN){
 }
 
 document.getElementById('heatN').addEventListener('input', (e)=>{
+  if(heatState.fixed){ heatStopTimer(); renderHeatFrame(Number(e.target.value)); return; }
   heatState.n = Number(e.target.value);
   heatSaveCfg();
   heatRefresh();
