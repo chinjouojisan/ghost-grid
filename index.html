@@ -5525,7 +5525,7 @@ function aiFormatExample(game, nextNo, cfg){
   return {
     app: AI_APP, version: 1, game, targetNo: nextNo,
     values: Array.from({length:cfg.n}, (_,i)=>`数字${i+1}（整数、1〜${cfg.max}、重複なし）`),
-    picks: [{ n:'数字', role:'軸|周辺|均衡|隙間|サプライズ|跳躍|引っ張り', corner:'全回|4+1|9+1|19+1|重複20', basis:'どの数字・ラインの動き・形から選んだか（成長の動きで書く）' }],
+    picks: [{ n:'数字', role:'軸|周辺|均衡|隙間|サプライズ|跳躍', corner:'全回|4+1|9+1|19+1|重複20', basis:'どの数字・ラインの動き・形から選んだか（成長の動きで書く）' }],
     surpriseNote:'意外性の狙い（どこが定番から外れ、なぜ形として成り立つか）',
     sources: [{ corner:'全回|4+1|9+1|19+1|重複20', percent:'0〜100（使ったコーナーの合計100）', basis:'そのコーナーから読み取った内容' }],
     setBall: { pick:'A〜J', basis:'次回のセット球の根拠' },
@@ -5914,8 +5914,9 @@ const GG_AI_GUIDE = [
   '【数字で確かめる（画面と同じ内容）】',
   '  GG_AI.heat(game, n, ball)  積み上げ（n回、ball省略=全回）の重なり',
   '  GG_AI.growth(game, n, ball) 重複の成長（各マスの直近の増え方・周囲の濃さ・段階 core/rising/halo/gap・領域の偏り）',
-  '  GG_AI.check(game, 数字配列, {n,ball})  予想の点検（役割・定番候補との重なり・過去ラインとの近さ・形の指標）',
+  '  GG_AI.check(game, 数字配列, {n,ball})  予想の点検（役割・定番候補との重なり・過去ラインとの近さ・形の指標・ばらけ方の位置・重心の跳び・最新回との重なり）',
   '  GG_AI.jump(game, {ball})   重心の足跡（直近の重心・歩幅・曲がり方）と、次の重心の「跳び先」候補（戻る・平均へ戻る=無難は印つき）',
+  '  GG_AI.lineMoves(game, {ball, keep}) 9+1/19+1の線の動き（小さい順の何番目の数字が、次の線でどこへ動いたか）と、線のばらけ方の推移',
   '  GG_AI.setBalls(game)       セット球の出現順・待ち回数',
   '  GG_AI.ball(game, letter, keep)  その球の直近keep回',
   '  GG_AI.placeLine(キー, 数字配列, {ball})  4+1/9+1の自由ラインに予想ラインを置いて形を確かめる',
@@ -5929,11 +5930,9 @@ const GG_AI_GUIDE = [
   '',
   '【ルール】',
   '  ・使ってよいコーナーは 全回・4+1・9+1・19+1・重複20。',
-  '  ・v3：数字を選ぶ前に、重心の足跡（全回とセット球別）から「跳び先」を決める。重心が前の重心へ戻る・平均へ戻る動きは無難なので避け、足跡が描く向き（直進・旋回）を読んで、そこから外れる1手を選ぶ。その跳び先に重心が来るよう、役割（軸・周辺・均衡・隙間・跳躍）で数字を組む。',
-  '  ・前回（最新回）の数字は1〜2個（ロト6は0〜1個のことも多い）続くことが多い。どれが続くかは、ラインの動きと重ねて選び、役割は「引っ張り」とする。ただし確率が上がる根拠ではなく、観察上の目安。',
-  '  ・目的は「ユーザーの予想外の一手」。多い数字を拾うだけの予想は不可。重複20は合計でなく「成長の過程」（起点→周囲への広がり→伸び→均衡）で読む。',
-  '  ・数字は役割で選ぶ：軸（核）2／周辺（核の周囲で増え始め）2〜3／均衡（偏りの反対側）1〜2／隙間 1／サプライズ 1〜2（定番候補から外れ、形としては成り立つ一手）。各picksに role を書く。',
-  '  ・GG_AI.check で、定番候補との重なりが半分以下、過去ラインに近すぎないことを確かめ、サプライズの狙いを surpriseNote に書く。',
+  '  ・v4：①GG_AI.jumpで重心の跳び先を決める（前の重心・平均へ戻る動きは無難として避ける）。②GG_AI.lineMovesで9+1/19+1の線の動き（各rankの数字の動き方、ばらけ方の推移）を読み、最新の線を土台に、跳び先へ動かした骨格を作る。③重複20の成長（核→周辺→隙間→均衡）で、骨格の数字を差し替え・補強する。重心だけを合わせて1か所に固めない。',
+  '  ・GG_AI.checkのspread（ばらけ方の位置）が、過去の抽選の下位15%未満（固まりすぎ）にならないこと。',
+  '  ・最新回の数字を先に選ばない（「引っ張り」の役割は使わない）。線ができたあとに、重なりを数えて記録する（0個でもよい）。ロト7は約70%、ロト6は約62%の回で1〜2個重なるが、乱数とほぼ同じ頻度。',
   '  ・根拠は合計回数ではなく、成長の動き（「直近5回で+2」「核の隣で連続」など）で書く。',
   '  ・各数字の根拠（どのコーナーの、どの数字・動き・形か）、4コーナーの参考割合（合計100%）、セット球の根拠を必ず書く。',
   '  ・予想方法（method）と、前回からの改善点を書く。',
@@ -6027,6 +6026,44 @@ const GG_AI_GUIDE = [
     return { game, note:'重心は、数字を5列のグリッドに置いたときの平均位置（x=列0〜4、y=行）。抽選は独立で、重心の動きも乱数とほぼ同じ傾向。これは当てるための確率ではなく、足跡を読んで「跳ぶ」ための目安。',
              all: jumpScope(game, SCOPE_ALL), ball: ball ? jumpScope(game, ball) : null };
   };
+
+  // ---- ばらけ方（隣との近さ・広がり・最大−最小）と、過去の全抽選の中での位置 ----------------
+  const spreadFeats = (vals)=>{
+    const pts = vals.map(cellOf), n = pts.length;
+    const nn = pts.map((a, i)=>Math.min(...pts.map((b, j)=> i === j ? 99 : Math.hypot(a[0]-b[0], a[1]-b[1]))));
+    const cx = pts.reduce((a, p)=>a + p[0], 0)/n, cy = pts.reduce((a, p)=>a + p[1], 0)/n;
+    const sp = Math.sqrt(pts.reduce((a, p)=>a + (p[0]-cx)*(p[0]-cx) + (p[1]-cy)*(p[1]-cy), 0)/n);
+    const so = [...vals].sort((a,b)=>a-b);
+    return { nearest: nn.reduce((a,b)=>a+b, 0)/n, spread: sp, range: so[n-1] - so[0] };
+  };
+  const spreadCache = {};
+  const spreadHist = game=>{ if(!spreadCache[game]) spreadCache[game] = ballAll(game).map(r=>spreadFeats(r[2])); return spreadCache[game]; };
+  const spreadCalc = (game, vals)=>{
+    const f = spreadFeats(vals), H = spreadHist(game), pc = k=>Math.round(100*H.filter(h=>h[k] <= f[k] + 1e-9).length/Math.max(1, H.length));
+    const pct = { nearest:pc('nearest'), spread:pc('spread'), range:pc('range') };
+    const lo = Math.min(pct.nearest, pct.spread, pct.range), hi = Math.max(pct.nearest, pct.spread, pct.range);
+    return { nearest:r2(f.nearest), spread:r2(f.spread), range:f.range, percentile:pct,
+             note: lo < 15 ? '固まりすぎです（過去の抽選の下位15%未満）。散らしてください' : (hi > 90 ? '散りすぎです（上位10%以上）' : '過去の抽選の標準的なばらけ方です') };
+  };
+  // ---- 9+1 / 19+1 の「ラインの動き」：同じ球（または全回）の連続した線を、小さい順の位置どうしで比べる ----
+  const lineMovesCalc = (game, ball, keep)=>{
+    chk(game);
+    const rows = scopeRows(game, ball || SCOPE_ALL).slice(-(keep || 9)), n = gameCfg(game).n;
+    const lines = rows.map(r=>({ no:r[0], main:ballSorted(r[2]) }));
+    const ranks = [];
+    for(let i=0; i<n; i++){
+      const pos = lines.map(l=>cellOf(l.main[i]));
+      const moves = pos.slice(1).map((p, k)=>({ dx:p[0]-pos[k][0], dy:p[1]-pos[k][1] }));
+      const last = moves[moves.length-1] || {dx:0, dy:0};
+      const flips = moves.slice(1).filter((m, k)=> (m.dx*moves[k].dx + m.dy*moves[k].dy) < 0).length;
+      ranks.push({ rank:i+1, latestNumber:lines[lines.length-1].main[i], lastMove:last, meanAbsMove:r2(moves.reduce((a,m)=>a + Math.hypot(m.dx, m.dy), 0)/Math.max(1, moves.length)),
+                   reversalsOfDirection:flips + '/' + Math.max(0, moves.length-1), tendency: moves.length > 1 ? (flips >= (moves.length-1)/2 ? '行き来しやすい（逆向きに戻る）' : '同じ向きへ続きやすい') : '' });
+    }
+    const feats = lines.map(l=>spreadFeats(l.main));
+    return { game, scope: ball || SCOPE_ALL, lines, ranks,
+             spreadTrend: lines.map((l, i)=>({ no:l.no, nearest:r2(feats[i].nearest), spread:r2(feats[i].spread), range:feats[i].range })),
+             note:'rank=小さい順の何番目か。各rankの数字が、前の線から次の線へグリッド上でどう動いたか（dx=列、dy=行）。動き方の読み取り用で、当てる確率の根拠ではない。' };
+  };
   // 予想の点検：定番候補との重なり・過去ラインとの近さ・形の指標・各数字の段階
   const checkCalc = (game, values, opt)=>{
     const cfg = gameCfg(chk(game)), vals = (values || []).map(Number), g = growthCalc(game, opt.n || 20, opt.ball);
@@ -6046,13 +6083,14 @@ const GG_AI_GUIDE = [
       shape: { sum: sorted.reduce((a,b)=>a+b, 0), odd: sorted.filter(v=>v%2).length, maxGap: Math.max(...gaps), consecutivePairs: gaps.filter(d=>d === 1).length,
                zonesCovered: new Set(sorted.map(v=>zoneOf(v, cfg.max))).size, zones: sorted.map(v=>zoneOf(v, cfg.max)) },
       zonesByDeficit: g.zonesByDeficit.slice(0, 3),
+      spread: spreadCalc(game, vals),
       centroid: (()=>{
         const c = centroidOf(sorted), out = { x:r2(c.x), y:r2(c.y) };
         const sc = (b)=>{ const j = jumpScope(game, b); if(!j.latest) return null; const d = Math.hypot(c.x - j.latest.x, c.y - j.latest.y);
           return { fromLatest:r2(d), typicalStep:j.typicalStep, backToPrevious: j.previous ? Math.hypot(c.x - j.previous.x, c.y - j.previous.y) < 0.6*j.typicalStep : false, nearMean: Math.hypot(c.x - j.mean.x, c.y - j.mean.y) < 0.4 }; };
         out.vsAll = sc(SCOPE_ALL); out.vsBall = opt.ball ? sc(opt.ball) : null; return out; })(),
       carry: (()=>{ const lt = last.filter(v=>vals.includes(v)); const lb = opt.ball ? scopeRows(game, opt.ball).slice(-1)[0] : null; const bl = lb ? lb[2].filter(v=>vals.includes(v)) : [];
-        return { fromLatestDraw: lt, count: lt.length, fromSameBallLatest: bl, note: `最新回の数字との重なり。1〜2個が観察上の目安（ロト7は約70%、ロト6は約62%の回が1〜2個）。どれが続くかはランダム。` }; })()
+        return { fromLatestDraw: lt, count: lt.length, fromSameBallLatest: bl, note: `最新回の数字との重なり（結果として数えるだけ。狙って選ばない）。0個でもよい。観察上、ロト7は約70%、ロト6は約62%の回が1〜2個で、乱数とほぼ同じ頻度。` }; })()
     };
   };
   window.GG_AI = {
@@ -6072,6 +6110,7 @@ const GG_AI_GUIDE = [
     heat(game, n, ball){ return heatCalc(game, n, ball); },
     growth(game, n, ball){ return growthCalc(game, n, ball); },
     check(game, values, opt){ return checkCalc(game, values, opt || {}); },
+    lineMoves(game, opt){ opt = opt || {}; if(opt.ball && !BALL_LETTERS.includes(opt.ball)) throw new Error('ball は A〜J'); return lineMovesCalc(game, opt.ball, opt.keep); },
     jump(game, opt){ opt = opt || {}; if(opt.ball && !BALL_LETTERS.includes(opt.ball)) throw new Error('ball は A〜J'); return jumpCalc(game, opt.ball); },
     setBalls(game){
       chk(game);
