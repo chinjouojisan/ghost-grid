@@ -784,6 +784,7 @@
             <button class="tab-btn" data-track="freeLoto7">自由配置</button>
             <button class="tab-btn" data-track="ballAllLoto7">4+1</button>
             <button class="tab-btn" data-track="nineAllLoto7">9+1</button>
+            <button class="tab-btn" data-track="nineteenAllLoto7">19+1</button>
             <button class="tab-btn" data-track="heatAllLoto7">重複</button>
             <button class="tab-btn" data-track="heat10AllLoto7">重複10</button>
             <button class="tab-btn" data-track="heat20AllLoto7">重複20</button>
@@ -800,6 +801,7 @@
           <div class="acc-body"><div class="acc-tabs">
             <button class="tab-btn" data-track="ballLoto7">4+1</button>
             <button class="tab-btn" data-track="nineLoto7">9+1</button>
+            <button class="tab-btn" data-track="nineteenLoto7">19+1</button>
             <button class="tab-btn" data-track="heatLoto7">重複</button>
             <button class="tab-btn" data-track="heat10Loto7">重複10</button>
             <button class="tab-btn" data-track="heat20Loto7">重複20</button>
@@ -812,6 +814,7 @@
             <button class="tab-btn" data-track="freeLoto6">自由配置</button>
             <button class="tab-btn" data-track="ballAllLoto6">4+1</button>
             <button class="tab-btn" data-track="nineAllLoto6">9+1</button>
+            <button class="tab-btn" data-track="nineteenAllLoto6">19+1</button>
             <button class="tab-btn" data-track="heatAllLoto6">重複</button>
             <button class="tab-btn" data-track="heat10AllLoto6">重複10</button>
             <button class="tab-btn" data-track="heat20AllLoto6">重複20</button>
@@ -828,6 +831,7 @@
           <div class="acc-body"><div class="acc-tabs">
             <button class="tab-btn" data-track="ballLoto6">4+1</button>
             <button class="tab-btn" data-track="nineLoto6">9+1</button>
+            <button class="tab-btn" data-track="nineteenLoto6">19+1</button>
             <button class="tab-btn" data-track="heatLoto6">重複</button>
             <button class="tab-btn" data-track="heat10Loto6">重複10</button>
             <button class="tab-btn" data-track="heat20Loto6">重複20</button>
@@ -1580,7 +1584,7 @@ function goTo(idx, animate=true){
   const to = idx;
   if(from === to){ render(to); currentIdx = to; return; }
   updateTrailLayer(from);
-  const duration = (isBallTrack() && ballState.keep > 4) ? 2200 : (trailMode ? 2000 : 1000);
+  const duration = (isBallTrack() && ballState.keep > 9) ? 1500 : (isBallTrack() && ballState.keep > 4) ? 2200 : (trailMode ? 2000 : 1000);
   let startTime = null;
   function step(now){
     if(startTime === null) startTime = now;
@@ -1644,7 +1648,7 @@ playBtn.onclick = ()=>{
     playTimer = setInterval(()=>{
       if(ballState.step >= ballState.rows.length){ stopPlay(); return; }
       ballNav(1);
-    }, ballState.keep > 4 ? 3000 : 2600);
+    }, ballState.keep > 9 ? 2000 : (ballState.keep > 4 ? 3000 : 2600));
   } else {
     if(currentIdx >= draws.length-1){ goTo(0, false); }
     playTimer = setInterval(()=>{
@@ -4039,7 +4043,9 @@ const BALL_TRACKS = {
   ballLoto7:{game:'loto7', keep:4}, ballLoto6:{game:'loto6', keep:4},
   nineLoto7:{game:'loto7', keep:9}, nineLoto6:{game:'loto6', keep:9},
   ballAllLoto7:{game:'loto7', keep:4, all:true}, ballAllLoto6:{game:'loto6', keep:4, all:true},
-  nineAllLoto7:{game:'loto7', keep:9, all:true}, nineAllLoto6:{game:'loto6', keep:9, all:true}
+  nineAllLoto7:{game:'loto7', keep:9, all:true}, nineAllLoto6:{game:'loto6', keep:9, all:true},
+  nineteenLoto7:{game:'loto7', keep:19}, nineteenLoto6:{game:'loto6', keep:19},
+  nineteenAllLoto7:{game:'loto7', keep:19, all:true}, nineteenAllLoto6:{game:'loto6', keep:19, all:true}
 };
 const SCOPE_ALL = 'ALL';   // ball === 'ALL' → セット球を問わない全抽選の連続
 function scopeRows(game, ball){ return ball === SCOPE_ALL ? ballAll(game) : ballAll(game).filter(r=>r[1] === ball); }
@@ -4133,7 +4139,7 @@ function setBall(game, ball){
   document.getElementById('controlsBlock').style.display = 'flex';
   document.getElementById('timelineTicks').style.display = 'flex';
   document.getElementById('timelineTicks').innerHTML = (N > 5)
-    ? rows.map((r,i)=>`<span>${(i === 0 || i === N-1) ? '第' + r[0] + '回' : r[0]}</span>`).join('') + '<span>自由</span>'
+    ? rows.map((r,i)=>`<span>${(i === 0 || i === N-1) ? '第' + r[0] + '回' : (N > 12 ? '' : r[0])}</span>`).join('') + '<span>自由</span>'
     : rows.map(r=>`<span>第${r[0]}回</span>`).join('') + '<span>自由</span>';
   document.getElementById('trailTitle').textContent = `Centroid Drift — ${ball === SCOPE_ALL ? '全抽選' : 'セット球' + ball}（直近${N}回）`;
   scrub.max = N;
@@ -5519,9 +5525,9 @@ function aiFormatExample(game, nextNo, cfg){
   return {
     app: AI_APP, version: 1, game, targetNo: nextNo,
     values: Array.from({length:cfg.n}, (_,i)=>`数字${i+1}（整数、1〜${cfg.max}、重複なし）`),
-    picks: [{ n:'数字', role:'軸|周辺|均衡|隙間|サプライズ', corner:'全回|4+1|9+1|重複20', basis:'どの数字・ラインの動き・形から選んだか（成長の動きで書く）' }],
+    picks: [{ n:'数字', role:'軸|周辺|均衡|隙間|サプライズ|跳躍|引っ張り', corner:'全回|4+1|9+1|19+1|重複20', basis:'どの数字・ラインの動き・形から選んだか（成長の動きで書く）' }],
     surpriseNote:'意外性の狙い（どこが定番から外れ、なぜ形として成り立つか）',
-    sources: [{ corner:'全回|4+1|9+1|重複20', percent:'0〜100（4つの合計100）', basis:'そのコーナーから読み取った内容' }],
+    sources: [{ corner:'全回|4+1|9+1|19+1|重複20', percent:'0〜100（使ったコーナーの合計100）', basis:'そのコーナーから読み取った内容' }],
     setBall: { pick:'A〜J', basis:'次回のセット球の根拠' },
     shapeNote:'ラインの動き・形についての説明', rationale:'全体の説明文',
     method: { version:'v1, v2…', steps:['手順1','手順2'], changes:'前回の方法からの改善点（初回は空）' },
@@ -5542,7 +5548,8 @@ function buildAnalysisExport(game, count, note, nextBall, includeUser){
     const rs = rows.filter(r=>r[1] === L);
     if(!rs.length) return;
     setBall[L] = { drawsSinceLastUse: latestNo - rs[rs.length-1][0],
-                   last9: rs.slice(-9).map(r=>({no:r[0], main:mainOf(r)})) };
+                   last9: rs.slice(-9).map(r=>({no:r[0], main:mainOf(r)})),
+                   last19: rs.slice(-19).map(r=>({no:r[0], main:mainOf(r)})) };
   });
 
   // 重複20：直近20回を古い順に積み上げたときの数字の重なり
@@ -5593,13 +5600,14 @@ function buildAnalysisExport(game, count, note, nextBall, includeUser){
       '全回': 'draws。直近の連続した回を、1回=1本のラインとして重ねたときの動き・形。',
       '4+1': 'setBall.<球>.last9の末尾4回。同じセット球の直近4回のラインに、5本目として予想ラインを置く。',
       '9+1': 'setBall.<球>.last9の9回。同じセット球の直近9回のラインに、10本目として予想ラインを置く。',
+      '19+1': 'setBall.<球>.last19の19回。同じセット球の直近19回のラインに、20本目として予想ラインを置く。重心の足跡（Centroid Drift）も見る。',
       '重複20': 'heat20。直近20回を古い順に積み上げたときの数字の重なり（steps、repeated、absent、counts）。'
     },
     rules: [
-      '予想に使ってよいコーナーは、全回・4+1・9+1・重複20の4つだけ。',
+      '予想に使ってよいコーナーは、全回・4+1・9+1・19+1・重複20の5つだけ。',
       'picks：予想した各数字について、役割（軸・周辺・均衡・隙間・サプライズ）と、どのコーナーの、どの数字・ラインの動き・形から選んだかを必ず具体的に書く。根拠は合計回数ではなく、成長の動きで書く。',
       'サプライズを1〜2個入れる。定番候補（回数の多い数字、直近の数字）から外れ、形としては成り立つ一手にし、狙いを surpriseNote に書く。',
-      'sources：4コーナーそれぞれの参考割合（percent、合計100）と、そのコーナーから読み取った内容。使わなかったコーナーは0でよい。',
+      'sources：使ったコーナーそれぞれの参考割合（percent、合計100）と、そのコーナーから読み取った内容。使わなかったコーナーは0でよい。',
       'setBall：次回のセット球を1つ（pick）と、根拠（basis。セット球の出現順・待ち回数・直近の使われ方など）。',
       'shapeNote：予想ラインが、最新のラインや過去のラインに対してどんな動き・形になるかを書く。',
       'rationale：全体の説明文。数字やラインの動き・形から決めた箇所は、必ずどのコーナーに基づくか明記する。',
@@ -5819,7 +5827,7 @@ function aiReportHtml(e, game, res){
   const sec = (title, body)=> body ? `<h4>${title}</h4>${body}` : '';
   const txt = x => x ? `<div class="ai-text">${aiEsc(x)}</div>` : '';
   const srcs = e.sources.length ? e.sources.map(s=>`<div class="ai-src"><span class="nm">${aiEsc(s.corner)}</span><div class="ai-bar"><i style="width:${s.percent}%"></i></div><span class="pc">${Math.round(s.percent)}%</span>${s.basis ? `<span class="bs">${aiEsc(s.basis)}</span>` : ''}</div>`).join('') : '';
-  const picks = e.picks.length ? e.picks.map(p=>`<div class="ai-pick"><b>${aiPad(p.n)}</b><span class="cn">${p.role ? `<span class="ai-role${p.role === 'サプライズ' ? ' sup' : ''}">${aiEsc(p.role)}</span> ` : ''}${aiEsc(p.corner)}</span><span>${aiEsc(p.basis)}</span></div>`).join('') : '';
+  const picks = e.picks.length ? e.picks.map(p=>`<div class="ai-pick"><b>${aiPad(p.n)}</b><span class="cn">${p.role ? `<span class="ai-role${(p.role === 'サプライズ' || p.role === '跳躍') ? ' sup' : ''}">${aiEsc(p.role)}</span> ` : ''}${aiEsc(p.corner)}</span><span>${aiEsc(p.basis)}</span></div>`).join('') : '';
   const steps = e.method.steps.length ? `<ol style="margin:0 0 6px;padding-left:20px;">${e.method.steps.map(x=>`<li>${aiEsc(x)}</li>`).join('')}</ol>` : '';
   const sbHtml = e.setBall ? `<div class="ai-text">次回のセット球：<b>${aiEsc(e.setBall.pick)}</b>${e.setBall.basis ? ' — ' + aiEsc(e.setBall.basis) : ''}</div>` : '';
   return sec('予想数字', `<div class="nums">${e.values.map(v=>`<span class="num-chip">${aiPad(v)}</span>`).join('')}</div>`)
@@ -5897,6 +5905,8 @@ const GG_AI_GUIDE = [
   '  9+1（全回）   nineAllLoto7 / nineAllLoto6',
   '  4+1（球別）   ballLoto7 / ballLoto6   ※ball指定が必要',
   '  9+1（球別）   nineLoto7 / nineLoto6   ※ball指定が必要',
+  '  19+1（全回）  nineteenAllLoto7 / nineteenAllLoto6',
+  '  19+1（球別）  nineteenLoto7 / nineteenLoto6   ※ball指定が必要（重心の足跡 Centroid Drift も表示）',
   '  重複20（全回） heat20AllLoto7 / heat20AllLoto6（積み上げの最終形）',
   '  重複20（球別） heat20Loto7 / heat20Loto6   ※ball指定が必要',
   '  AI予想        aiLoto7 / aiLoto6（提出後の表示）',
@@ -5905,19 +5915,22 @@ const GG_AI_GUIDE = [
   '  GG_AI.heat(game, n, ball)  積み上げ（n回、ball省略=全回）の重なり',
   '  GG_AI.growth(game, n, ball) 重複の成長（各マスの直近の増え方・周囲の濃さ・段階 core/rising/halo/gap・領域の偏り）',
   '  GG_AI.check(game, 数字配列, {n,ball})  予想の点検（役割・定番候補との重なり・過去ラインとの近さ・形の指標）',
+  '  GG_AI.jump(game, {ball})   重心の足跡（直近の重心・歩幅・曲がり方）と、次の重心の「跳び先」候補（戻る・平均へ戻る=無難は印つき）',
   '  GG_AI.setBalls(game)       セット球の出現順・待ち回数',
   '  GG_AI.ball(game, letter, keep)  その球の直近keep回',
   '  GG_AI.placeLine(キー, 数字配列, {ball})  4+1/9+1の自由ラインに予想ラインを置いて形を確かめる',
   '',
   '【手順】',
-  '  1. 重複20・全回・4+1・9+1を開き、スクリーンショットで形や重なりを見る。',
+  '  0. GG_AI.jump で重心の足跡を読み、跳び先を決める。\n  1. 重複20・全回・4+1・9+1・19+1を開き、スクリーンショットで形や重なりを見る。',
   '  2. セット球の流れ（GG_AI.setBalls）から、次回のセット球を考える。',
   '  3. 数字を決め、placeLineで置いて形（動き・バランス）を確かめ、必要なら直す。',
   '  4. GG_AI.submit(予想オブジェクト) で提出する。形式は GG_AI.format(game)。返ってくる file を ai-predictions.json として保存し、ユーザーに渡す（ユーザーがGitHubのリポジトリ直下に上げると、アプリが自動で読み込む）。',
   '     既存の ai-predictions.json がある場合は、index.html と同じ場所に置いてから開くと、過去の予想を引き継いだ file が返る（上書きで消さないため）。',
   '',
   '【ルール】',
-  '  ・使ってよいコーナーは 全回・4+1・9+1・重複20。',
+  '  ・使ってよいコーナーは 全回・4+1・9+1・19+1・重複20。',
+  '  ・v3：数字を選ぶ前に、重心の足跡（全回とセット球別）から「跳び先」を決める。重心が前の重心へ戻る・平均へ戻る動きは無難なので避け、足跡が描く向き（直進・旋回）を読んで、そこから外れる1手を選ぶ。その跳び先に重心が来るよう、役割（軸・周辺・均衡・隙間・跳躍）で数字を組む。',
+  '  ・前回（最新回）の数字は1〜2個（ロト6は0〜1個のことも多い）続くことが多い。どれが続くかは、ラインの動きと重ねて選び、役割は「引っ張り」とする。ただし確率が上がる根拠ではなく、観察上の目安。',
   '  ・目的は「ユーザーの予想外の一手」。多い数字を拾うだけの予想は不可。重複20は合計でなく「成長の過程」（起点→周囲への広がり→伸び→均衡）で読む。',
   '  ・数字は役割で選ぶ：軸（核）2／周辺（核の周囲で増え始め）2〜3／均衡（偏りの反対側）1〜2／隙間 1／サプライズ 1〜2（定番候補から外れ、形としては成り立つ一手）。各picksに role を書く。',
   '  ・GG_AI.check で、定番候補との重なりが半分以下、過去ラインに近すぎないことを確かめ、サプライズの狙いを surpriseNote に書く。',
@@ -5982,6 +5995,38 @@ const GG_AI_GUIDE = [
     return { game, scope: ball || SCOPE_ALL, windowSize:N, recentWindow:'直近5回', coreThreshold:coreMin, haloThreshold:haloMin,
              core:by('core'), coreFading:by('coreFading'), rising:by('rising'), halo:by('halo'), gap:by('gap'), zonesByDeficit:zones, cells };
   };
+
+  // ---- 重心の足跡：各回の重心（列0〜4・行）の動きを読む -------------------------------
+  const centroidOf = m=>{ let x = 0, y = 0; m.forEach(v=>{ const c = cellOf(v); x += c[0]; y += c[1]; }); return { x:x/m.length, y:y/m.length }; };
+  const r2 = v=>Number(v.toFixed(2));
+  const jumpScope = (game, ball)=>{
+    const cfg = gameCfg(game), rows = scopeRows(game, ball), recent = rows.slice(-40);
+    const cs = recent.map(r=>Object.assign({ no:r[0] }, centroidOf(r[2])));
+    const steps = cs.slice(1).map((c, i)=>{ const dx = c.x - cs[i].x, dy = c.y - cs[i].y; return { no:c.no, dx:r2(dx), dy:r2(dy), len:r2(Math.hypot(dx, dy)), angle:Math.round(Math.atan2(dy, dx)*180/Math.PI) }; });
+    const lens = steps.map(s=>s.len).sort((a,b)=>a-b), L = lens.length ? lens[Math.floor(lens.length/2)] : 1;
+    const all = rows.map(r=>centroidOf(r[2])), mean = { x:all.reduce((a,c)=>a + c.x, 0)/Math.max(1, all.length), y:all.reduce((a,c)=>a + c.y, 0)/Math.max(1, all.length) };
+    const latest = cs[cs.length-1], prev = cs[cs.length-2], lastStep = steps[steps.length-1];
+    const turns = steps.slice(1).map((s, i)=>{ let t = s.angle - steps[i].angle; while(t > 180) t -= 360; while(t <= -180) t += 360; return t; });
+    const near = (t)=>{ const out = []; for(let v=1; v<=cfg.max; v++){ const c = cellOf(v); if(Math.hypot(c[0]-t.x, c[1]-t.y) <= 1.5) out.push(v); } return out; };
+    const options = [];
+    if(latest && lastStep){
+      [['直進',0],['左へ60°',-60],['右へ60°',60],['左へ120°',-120],['右へ120°',120],['折り返す',180]].forEach(([name, turn])=>{
+        const a = (lastStep.angle + turn)*Math.PI/180, t = { x:latest.x + L*Math.cos(a), y:latest.y + L*Math.sin(a) };
+        const maxRow = Math.ceil(cfg.max/5) - 1, inGrid = t.x >= 0.3 && t.x <= 3.7 && t.y >= 0.5 && t.y <= maxRow - 0.5;
+        const backToPrev = prev ? Math.hypot(t.x - prev.x, t.y - prev.y) < 0.6*L : false;
+        const towardMean = Math.hypot(t.x - mean.x, t.y - mean.y) < Math.hypot(latest.x - mean.x, latest.y - mean.y)*0.6;
+        options.push({ name, turnDeg:turn, target:{ x:r2(t.x), y:r2(t.y) }, inGrid, backToPrev, towardMean,
+          verdict: !inGrid ? '範囲外' : (backToPrev ? '前の重心へ戻る（無難）' : (towardMean ? '平均へ戻る（無難）' : '跳び先の候補')), numbersNear: near(t) });
+      });
+    }
+    return { scope: ball, latest: latest && { no:latest.no, x:r2(latest.x), y:r2(latest.y) }, previous: prev && { no:prev.no, x:r2(prev.x), y:r2(prev.y) }, mean:{ x:r2(mean.x), y:r2(mean.y) },
+             typicalStep: L, recentFootprint: cs.slice(-8).map(c=>({ no:c.no, x:r2(c.x), y:r2(c.y) })), recentSteps: steps.slice(-6), recentTurnsDeg: turns.slice(-6), options };
+  };
+  const jumpCalc = (game, ball)=>{
+    chk(game);
+    return { game, note:'重心は、数字を5列のグリッドに置いたときの平均位置（x=列0〜4、y=行）。抽選は独立で、重心の動きも乱数とほぼ同じ傾向。これは当てるための確率ではなく、足跡を読んで「跳ぶ」ための目安。',
+             all: jumpScope(game, SCOPE_ALL), ball: ball ? jumpScope(game, ball) : null };
+  };
   // 予想の点検：定番候補との重なり・過去ラインとの近さ・形の指標・各数字の段階
   const checkCalc = (game, values, opt)=>{
     const cfg = gameCfg(chk(game)), vals = (values || []).map(Number), g = growthCalc(game, opt.n || 20, opt.ball);
@@ -6000,7 +6045,14 @@ const GG_AI_GUIDE = [
       closestPastDraw: best, pastDrawsWithManyOverlaps: near,
       shape: { sum: sorted.reduce((a,b)=>a+b, 0), odd: sorted.filter(v=>v%2).length, maxGap: Math.max(...gaps), consecutivePairs: gaps.filter(d=>d === 1).length,
                zonesCovered: new Set(sorted.map(v=>zoneOf(v, cfg.max))).size, zones: sorted.map(v=>zoneOf(v, cfg.max)) },
-      zonesByDeficit: g.zonesByDeficit.slice(0, 3)
+      zonesByDeficit: g.zonesByDeficit.slice(0, 3),
+      centroid: (()=>{
+        const c = centroidOf(sorted), out = { x:r2(c.x), y:r2(c.y) };
+        const sc = (b)=>{ const j = jumpScope(game, b); if(!j.latest) return null; const d = Math.hypot(c.x - j.latest.x, c.y - j.latest.y);
+          return { fromLatest:r2(d), typicalStep:j.typicalStep, backToPrevious: j.previous ? Math.hypot(c.x - j.previous.x, c.y - j.previous.y) < 0.6*j.typicalStep : false, nearMean: Math.hypot(c.x - j.mean.x, c.y - j.mean.y) < 0.4 }; };
+        out.vsAll = sc(SCOPE_ALL); out.vsBall = opt.ball ? sc(opt.ball) : null; return out; })(),
+      carry: (()=>{ const lt = last.filter(v=>vals.includes(v)); const lb = opt.ball ? scopeRows(game, opt.ball).slice(-1)[0] : null; const bl = lb ? lb[2].filter(v=>vals.includes(v)) : [];
+        return { fromLatestDraw: lt, count: lt.length, fromSameBallLatest: bl, note: `最新回の数字との重なり。1〜2個が観察上の目安（ロト7は約70%、ロト6は約62%の回が1〜2個）。どれが続くかはランダム。` }; })()
     };
   };
   window.GG_AI = {
@@ -6020,6 +6072,7 @@ const GG_AI_GUIDE = [
     heat(game, n, ball){ return heatCalc(game, n, ball); },
     growth(game, n, ball){ return growthCalc(game, n, ball); },
     check(game, values, opt){ return checkCalc(game, values, opt || {}); },
+    jump(game, opt){ opt = opt || {}; if(opt.ball && !BALL_LETTERS.includes(opt.ball)) throw new Error('ball は A〜J'); return jumpCalc(game, opt.ball); },
     setBalls(game){
       chk(game);
       const rows = ballAll(game), st = ballStats(game), waits = {}, uses = {};
