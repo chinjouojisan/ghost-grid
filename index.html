@@ -1026,6 +1026,16 @@ if(GG_AI_MODE){
     return;
   }
   if(GG_AI_MODE) GG_DATA.predictionLog = {loto7:[], loto6:[]};
+  // ai-predictions.json：AIの予想の共有ファイル（リポジトリに置くと全端末で読める。無ければ空）
+  window.GG_AI_REPO = {loto7:[], loto6:[]};
+  try{
+    const r2 = await fetch('./ai-predictions.json', {cache:'no-store'});
+    if(r2.ok){
+      const j2 = await r2.json();
+      const pr = (j2 && j2.predictions) || {};
+      window.GG_AI_REPO = { loto7: Array.isArray(pr.loto7) ? pr.loto7 : [], loto6: Array.isArray(pr.loto6) ? pr.loto6 : [] };
+    }
+  }catch(err){ /* ファイルが無い／読めない場合は共有の予想なし */ }
   initApp(GG_DATA);
 })();
 
@@ -5445,9 +5455,21 @@ const AI_KEEP = 40;
 function gameCfg(game){ return game === 'loto6' ? {max:43, n:6, label:'ロト6'} : {max:37, n:7, label:'ロト7'}; }
 function aiEsc(x){ return String(x == null ? '' : x).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function aiPad(v){ return String(Math.round(v)).padStart(2,'0'); }
-function aiLoad(){
+function aiLocal(){
   const o = ballLoad(AI_STORE_KEY, {});
   return { loto7: Array.isArray(o.loto7) ? o.loto7 : [], loto6: Array.isArray(o.loto6) ? o.loto6 : [] };
+}
+function aiKey(g, e){ return g + '|' + (e.targetNo || '') + '|' + e.values.join(','); }
+// 共有ファイル（ai-predictions.json）＋この端末に読み込んだ分。同じ予想は共有側を優先して1件にまとめる。
+function aiLoad(){
+  const loc = aiLocal(), out = { loto7:[], loto6:[] };
+  ['loto7','loto6'].forEach(g=>{
+    const repo = ((window.GG_AI_REPO || {})[g] || []).filter(e=>e && Array.isArray(e.values) && e.createdAt).map(e=>Object.assign({}, e, {shared:true}));
+    const seen = new Set(repo.map(e=>aiKey(g, e)));
+    const mine = loc[g].filter(e=>e && Array.isArray(e.values) && !seen.has(aiKey(g, e)));
+    out[g] = repo.concat(mine).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+  });
+  return out;
 }
 function aiList(game){ return aiLoad()[game]; }
 function aiLatest(game){ const l = aiList(game); return l.length ? l[l.length-1] : null; }
@@ -5499,7 +5521,7 @@ function aiFormatExample(game, nextNo, cfg){
     setBall: { pick:'A〜J', basis:'次回のセット球の根拠' },
     shapeNote:'ラインの動き・形についての説明', rationale:'全体の説明文',
     method: { version:'v1, v2…', steps:['手順1','手順2'], changes:'前回の方法からの改善点（初回は空）' },
-    userInsight:'（任意）'
+    userInsight:'（任意）', author:'予想したAIの名前（任意）'
   };
 }
 
@@ -5686,7 +5708,7 @@ function aiParse(text, game){
     values: [...vals].sort((a,b)=>a-b), picks, sources, setBall,
     shapeNote: aiStr(o.shapeNote), rationale: aiStr(o.rationale),
     method: { version:aiStr(m.version, 20), steps:(Array.isArray(m.steps) ? m.steps : []).slice(0, 20).map(x=>aiStr(x, 600)), changes:aiStr(m.changes, 1500) },
-    userInsight: aiStr(o.userInsight)
+    userInsight: aiStr(o.userInsight), author: aiStr(o.author, 40)
   };
   return {ok:true, entry, warn};
 }
@@ -5721,7 +5743,7 @@ function aiRender(){
   const sel = document.getElementById('aiSel');
   sel.innerHTML = list.length ? list.map((e,i)=>({e,i})).reverse().map(({e,i})=>{
     const d = new Date(e.createdAt), z = n=>String(n).padStart(2,'0');
-    return `<option value="${i}">${e.targetNo ? '第'+e.targetNo+'回向け' : '回号なし'} ・ ${d.getMonth()+1}/${d.getDate()} ${z(d.getHours())}:${z(d.getMinutes())}</option>`;
+    return `<option value="${i}">${e.targetNo ? '第'+e.targetNo+'回向け' : '回号なし'} ・ ${d.getMonth()+1}/${d.getDate()} ${z(d.getHours())}:${z(d.getMinutes())}${e.author ? ' ・' + aiEsc(e.author) : ''}${e.shared ? '（共有）' : ''}</option>`;
   }).join('') : '<option>（まだありません）</option>';
   sel.disabled = !list.length;
   if(list.length) sel.value = String(aiState.idx);
@@ -5760,7 +5782,7 @@ function aiRender(){
   });
   const d = new Date(e.createdAt);
   document.getElementById('drawId').textContent = `AI予想 ・${cfg.label}${e.targetNo ? ' 第'+e.targetNo+'回向け' : ''}`;
-  document.getElementById('drawDate').textContent = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} に読み込み${res ? ' ・結果あり' : ''}`;
+  document.getElementById('drawDate').textContent = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${e.shared ? '作成' : 'に読み込み'}${e.author ? ' ・' + e.author : ''}${res ? ' ・結果あり' : ''}`;
   document.getElementById('bonusNums').innerHTML = '';
   document.getElementById('mainNums').innerHTML = e.values.map(v=>`<span class="num-chip">${aiPad(v)}</span>`).join('');
   document.getElementById('shapeMetricNote').textContent = 'AI予想では、指標は表示しません。';
@@ -5773,11 +5795,13 @@ function aiRender(){
     try{ aiDownload(`ghost-grid-ai-report-${game}-${e.targetNo || aiStamp()}.md`, aiReportText(e, game, res), 'text/markdown'); document.getElementById('aiRepMsg').textContent = 'レポートを保存しました'; }
     catch(err){ document.getElementById('aiRepMsg').textContent = '保存できませんでした。「コピー」を使ってください'; }
   });
-  document.getElementById('aiRepDel').addEventListener('click', ()=>{
+  const delBtn = document.getElementById('aiRepDel');
+  if(delBtn) delBtn.addEventListener('click', ()=>{
     if(!confirm('このAI予想を削除します。よろしいですか？')) return;
-    const all = aiLoad(); all[game].splice(aiState.idx, 1); ballSave(AI_STORE_KEY, all);
-    aiState.idx = all[game].length ? all[game].length-1 : -1;
-    document.getElementById('aiImp').open = !all[game].length;
+    const loc = aiLocal(); loc[game] = loc[game].filter(x=>x.id !== e.id); ballSave(AI_STORE_KEY, loc);
+    const now = aiLoad()[game];
+    aiState.idx = now.length ? now.length-1 : -1;
+    document.getElementById('aiImp').open = !now.length;
     aiRender();
   });
 }
@@ -5801,8 +5825,8 @@ function aiReportHtml(e, game, res){
     + sec('予想の説明', txt(e.rationale))
     + sec(`予想の方法${e.method.version ? '（' + aiEsc(e.method.version) + '）' : ''}`, steps + (e.method.changes ? `<div class="ai-text">改善点：${aiEsc(e.method.changes)}</div>` : ''))
     + sec('あなたの傾向との対比', txt(e.userInsight))
-    + `<div class="ai-btns"><button id="aiRepCopy" class="draft-save-btn" type="button">レポートをコピー</button><button id="aiRepFile" class="draft-save-btn" type="button">ファイルに保存</button><button id="aiRepDel" class="draft-save-btn" type="button" style="background:transparent;color:#ff8a8a;border:1px solid #ff8a8a;">この予想を削除</button><span id="aiRepMsg" class="ai-msg"></span></div>`
-    + `<div class="ai-msg" style="margin-top:8px;">観察用の記録で、当選を保証するものではありません。</div>`;
+    + `<div class="ai-btns"><button id="aiRepCopy" class="draft-save-btn" type="button">レポートをコピー</button><button id="aiRepFile" class="draft-save-btn" type="button">ファイルに保存</button>${e.shared ? '' : '<button id="aiRepDel" class="draft-save-btn" type="button" style="background:transparent;color:#ff8a8a;border:1px solid #ff8a8a;">この予想を削除</button>'}<span id="aiRepMsg" class="ai-msg"></span></div>`
+    + `<div class="ai-msg" style="margin-top:8px;">${e.shared ? '共有ファイル（ai-predictions.json）の予想です。消すときはリポジトリのファイルから消してください。<br>' : ''}観察用の記録で、当選を保証するものではありません。</div>`;
 }
 function aiReportText(e, game, res){
   const cfg = gameCfg(game), d = new Date(e.createdAt), L = [];
@@ -5841,11 +5865,11 @@ function aiReportText(e, game, res){
     if(!aiState.game) return;
     const r = aiParse(q('aiTa').value, aiState.game);
     if(!r.ok){ say(r.error, 'err'); return; }
-    const all = aiLoad(); all[aiState.game].push(r.entry);
-    if(all[aiState.game].length > AI_KEEP) all[aiState.game] = all[aiState.game].slice(-AI_KEEP);
-    ballSave(AI_STORE_KEY, all);
+    const loc = aiLocal(); loc[aiState.game].push(r.entry);
+    if(loc[aiState.game].length > AI_KEEP) loc[aiState.game] = loc[aiState.game].slice(-AI_KEEP);
+    ballSave(AI_STORE_KEY, loc);
     q('aiTa').value = '';
-    aiState.idx = all[aiState.game].length - 1;
+    aiState.idx = aiLoad()[aiState.game].length - 1;
     aiRender();
     q('aiImp').open = false;
     say(r.warn.length ? '読み込みました（注意：' + r.warn.join('、') + '）' : '読み込みました', r.warn.length ? 'warn' : '');
@@ -5879,7 +5903,8 @@ const GG_AI_GUIDE = [
   '  1. 重複20・全回・4+1・9+1を開き、スクリーンショットで形や重なりを見る。',
   '  2. セット球の流れ（GG_AI.setBalls）から、次回のセット球を考える。',
   '  3. 数字を決め、placeLineで置いて形（動き・バランス）を確かめ、必要なら直す。',
-  '  4. GG_AI.submit(予想オブジェクト) で提出する。形式は GG_AI.format(game)。返ってくる json をユーザーに渡す。',
+  '  4. GG_AI.submit(予想オブジェクト) で提出する。形式は GG_AI.format(game)。返ってくる file を ai-predictions.json として保存し、ユーザーに渡す（ユーザーがGitHubのリポジトリ直下に上げると、アプリが自動で読み込む）。',
+  '     既存の ai-predictions.json がある場合は、index.html と同じ場所に置いてから開くと、過去の予想を引き継いだ file が返る（上書きで消さないため）。',
   '',
   '【ルール】',
   '  ・使ってよいコーナーは 全回・4+1・9+1・重複20。',
@@ -5952,9 +5977,20 @@ const GG_AI_GUIDE = [
       obj.app = AI_APP; obj.version = 1;
       const r = aiParse(JSON.stringify(obj), obj.game);
       if(!r.ok) return {ok:false, error:r.error};
-      const all = aiLoad(); all[obj.game].push(r.entry); ballSave(AI_STORE_KEY, all);
+      const loc = aiLocal(); loc[obj.game].push(r.entry); ballSave(AI_STORE_KEY, loc);
       force(obj.game === 'loto6' ? 'aiLoto6' : 'aiLoto7');
-      return { ok:true, warn:r.warn, json: JSON.stringify(obj, null, 1) };
+      return { ok:true, warn:r.warn, json: JSON.stringify(obj, null, 1), file: window.GG_AI.predictionsFile() };
+    },
+    // ai-predictions.json の中身（読み込み済みの共有の予想＋この操作で提出した予想）。
+    // ユーザーがリポジトリ直下に置くと、アプリが自動で読み込む。
+    predictionsFile(){
+      const loc = aiLocal(), out = { loto7:[], loto6:[] };
+      ['loto7','loto6'].forEach(g=>{
+        const repo = (window.GG_AI_REPO || {})[g] || [];
+        const seen = new Set(repo.filter(e=>e && Array.isArray(e.values)).map(e=>aiKey(g, e)));
+        out[g] = repo.concat(loc[g].filter(e=>!seen.has(aiKey(g, e))));
+      });
+      return JSON.stringify({ app:'ghost-grid-ai-predictions', version:1, updatedAt:new Date().toISOString(), predictions:out }, null, 1);
     }
   };
 })();

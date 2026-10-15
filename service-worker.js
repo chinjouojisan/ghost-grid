@@ -13,7 +13,7 @@
 //    back to whatever was last cached. This means data updates (new draws)
 //    no longer require bumping CACHE_VERSION at all — just replace data.json
 //    on the server, and the next online launch picks it up automatically.
-const CACHE_VERSION = 'ghost-grid-v16';
+const CACHE_VERSION = 'ghost-grid-v17';
 const DATA_FILE = './data.json';
 const APP_SHELL = [
   './',
@@ -55,7 +55,8 @@ self.addEventListener('activate', (event) => {
 });
 
 function isDataRequest(request) {
-  return new URL(request.url).pathname.endsWith('/data.json');
+  const path = new URL(request.url).pathname;
+  return path.endsWith('/data.json') || path.endsWith('/ai-predictions.json');
 }
 
 self.addEventListener('fetch', (event) => {
