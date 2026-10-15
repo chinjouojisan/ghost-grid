@@ -111,6 +111,9 @@
   .ai-pick{ display:flex; gap:8px; margin-bottom:4px; }
   .ai-pick b{ flex:0 0 auto; min-width:26px; color:#C9A7FF; font-family:'Space Mono', monospace; }
   .ai-pick .cn{ flex:0 0 auto; color:var(--text-dim); font-size:11px; min-width:56px; }
+  .ai-role{ display:inline-block; padding:0 6px; border-radius:8px; background:rgba(201,167,255,0.18); color:#C9A7FF; font-size:10px; }
+  .ai-role.sup{ background:#FF6FC9; color:#1a0a12; font-weight:700; }
+  .ai-pick .cn{ min-width:92px; }
   .ai-hit{ padding:8px 10px; border:1px dashed rgba(255,255,255,0.25); border-radius:6px; margin:4px 0 2px; }
   .ai-empty{ color:var(--text-dim); }
   .ai-empty ol{ margin:6px 0 0; padding-left:20px; }
@@ -5516,7 +5519,8 @@ function aiFormatExample(game, nextNo, cfg){
   return {
     app: AI_APP, version: 1, game, targetNo: nextNo,
     values: Array.from({length:cfg.n}, (_,i)=>`数字${i+1}（整数、1〜${cfg.max}、重複なし）`),
-    picks: [{ n:'数字', corner:'全回|4+1|9+1|重複20', basis:'どの数字・ラインの動き・形から選んだか' }],
+    picks: [{ n:'数字', role:'軸|周辺|均衡|隙間|サプライズ', corner:'全回|4+1|9+1|重複20', basis:'どの数字・ラインの動き・形から選んだか（成長の動きで書く）' }],
+    surpriseNote:'意外性の狙い（どこが定番から外れ、なぜ形として成り立つか）',
     sources: [{ corner:'全回|4+1|9+1|重複20', percent:'0〜100（4つの合計100）', basis:'そのコーナーから読み取った内容' }],
     setBall: { pick:'A〜J', basis:'次回のセット球の根拠' },
     shapeNote:'ラインの動き・形についての説明', rationale:'全体の説明文',
@@ -5580,6 +5584,7 @@ function buildAnalysisExport(game, count, note, nextBall, includeUser){
       '各回の抽選は独立で、的中は保証できません。誇張せず、画面で観察できる形・動き・重なりに基づいて組み立てること。',
       'このアプリは数字を5列のグリッド（列=(数字-1)%5、行=floor((数字-1)/5)）に置き、小さい順に結んだ線として見る観察ツールです。',
       'AIの役割は、アプリのコーナー（全回・4+1・9+1・重複20）をユーザーと同じ道具として使い、予想を組み立てること。統計から答えを計算して出すのではなく、ラインの動き・形・重なりを読んで決める。',
+      '狙いは、ユーザーの予想外の一手。多い数字を拾うだけの予想は不可。重複20は合計ではなく、成長の過程（起点→周囲への広がり→伸び→均衡）で読む。美しいラインは、予想できない意外性の中に光る。',
       'ブラウザでアプリを開ける環境なら、index.html?ai=1 を開いて GG_AI.guide() の指示に従う（ユーザーの予想ログは読み込まれず、影響しない）。開けない場合は、このファイルの draws と corners から同じ見方を再現する。',
       'ユーザーの予想や線は、影響を避けるため、予想の組み立てには使わない。比較は予想の確定後にユーザーが行う。',
       ballTxt
@@ -5592,7 +5597,8 @@ function buildAnalysisExport(game, count, note, nextBall, includeUser){
     },
     rules: [
       '予想に使ってよいコーナーは、全回・4+1・9+1・重複20の4つだけ。',
-      'picks：予想した各数字について、どのコーナーの、どの数字・ラインの動き・形から選んだかを必ず具体的に書く。',
+      'picks：予想した各数字について、役割（軸・周辺・均衡・隙間・サプライズ）と、どのコーナーの、どの数字・ラインの動き・形から選んだかを必ず具体的に書く。根拠は合計回数ではなく、成長の動きで書く。',
+      'サプライズを1〜2個入れる。定番候補（回数の多い数字、直近の数字）から外れ、形としては成り立つ一手にし、狙いを surpriseNote に書く。',
       'sources：4コーナーそれぞれの参考割合（percent、合計100）と、そのコーナーから読み取った内容。使わなかったコーナーは0でよい。',
       'setBall：次回のセット球を1つ（pick）と、根拠（basis。セット球の出現順・待ち回数・直近の使われ方など）。',
       'shapeNote：予想ラインが、最新のラインや過去のラインに対してどんな動き・形になるかを書く。',
@@ -5690,7 +5696,7 @@ function aiParse(text, game){
   const vals = Array.isArray(o.values) ? o.values.map(Number) : [];
   if(vals.length !== cfg.n || vals.some(v=>!Number.isInteger(v) || v < 1 || v > cfg.max) || new Set(vals).size !== vals.length)
     return {ok:false, error:`数字は1〜${cfg.max}の整数を重複なしで${cfg.n}個にしてください。`};
-  const picks = (Array.isArray(o.picks) ? o.picks : []).slice(0, 20).map(x=>({ n:Number(x && x.n), corner:aiStr(x && x.corner, 20), basis:aiStr(x && x.basis, 800) })).filter(x=>Number.isInteger(x.n));
+  const picks = (Array.isArray(o.picks) ? o.picks : []).slice(0, 20).map(x=>({ n:Number(x && x.n), role:aiStr(x && x.role, 12), corner:aiStr(x && x.corner, 20), basis:aiStr(x && x.basis, 800) })).filter(x=>Number.isInteger(x.n));
   const sources = (Array.isArray(o.sources) ? o.sources : []).slice(0, 8).map(x=>({ corner:aiStr(x && x.corner, 20), percent:Math.max(0, Math.min(100, Number(x && x.percent) || 0)), basis:aiStr(x && x.basis, 1200) }));
   const m = (o.method && typeof o.method === 'object') ? o.method : {};
   const sbIn = (o.setBall && typeof o.setBall === 'object') ? o.setBall : null;
@@ -5708,7 +5714,7 @@ function aiParse(text, game){
     values: [...vals].sort((a,b)=>a-b), picks, sources, setBall,
     shapeNote: aiStr(o.shapeNote), rationale: aiStr(o.rationale),
     method: { version:aiStr(m.version, 20), steps:(Array.isArray(m.steps) ? m.steps : []).slice(0, 20).map(x=>aiStr(x, 600)), changes:aiStr(m.changes, 1500) },
-    userInsight: aiStr(o.userInsight), author: aiStr(o.author, 40)
+    userInsight: aiStr(o.userInsight), author: aiStr(o.author, 40), surpriseNote: aiStr(o.surpriseNote, 1500)
   };
   return {ok:true, entry, warn};
 }
@@ -5813,13 +5819,14 @@ function aiReportHtml(e, game, res){
   const sec = (title, body)=> body ? `<h4>${title}</h4>${body}` : '';
   const txt = x => x ? `<div class="ai-text">${aiEsc(x)}</div>` : '';
   const srcs = e.sources.length ? e.sources.map(s=>`<div class="ai-src"><span class="nm">${aiEsc(s.corner)}</span><div class="ai-bar"><i style="width:${s.percent}%"></i></div><span class="pc">${Math.round(s.percent)}%</span>${s.basis ? `<span class="bs">${aiEsc(s.basis)}</span>` : ''}</div>`).join('') : '';
-  const picks = e.picks.length ? e.picks.map(p=>`<div class="ai-pick"><b>${aiPad(p.n)}</b><span class="cn">${aiEsc(p.corner)}</span><span>${aiEsc(p.basis)}</span></div>`).join('') : '';
+  const picks = e.picks.length ? e.picks.map(p=>`<div class="ai-pick"><b>${aiPad(p.n)}</b><span class="cn">${p.role ? `<span class="ai-role${p.role === 'サプライズ' ? ' sup' : ''}">${aiEsc(p.role)}</span> ` : ''}${aiEsc(p.corner)}</span><span>${aiEsc(p.basis)}</span></div>`).join('') : '';
   const steps = e.method.steps.length ? `<ol style="margin:0 0 6px;padding-left:20px;">${e.method.steps.map(x=>`<li>${aiEsc(x)}</li>`).join('')}</ol>` : '';
   const sbHtml = e.setBall ? `<div class="ai-text">次回のセット球：<b>${aiEsc(e.setBall.pick)}</b>${e.setBall.basis ? ' — ' + aiEsc(e.setBall.basis) : ''}</div>` : '';
   return sec('予想数字', `<div class="nums">${e.values.map(v=>`<span class="num-chip">${aiPad(v)}</span>`).join('')}</div>`)
     + (res ? `<div class="ai-hit">${aiEsc(aiResultText(res))}</div>` : '')
     + sec('セット球の予想', sbHtml)
     + sec('参考にしたコーナーの割合', srcs)
+    + sec('意外性の狙い', txt(e.surpriseNote))
     + sec('数字ごとの根拠', picks)
     + sec('ラインの動き・形', txt(e.shapeNote))
     + sec('予想の説明', txt(e.rationale))
@@ -5836,7 +5843,8 @@ function aiReportText(e, game, res){
   if(res) L.push(aiResultText(res));
   if(e.sources.length){ L.push('', '## 参考にしたコーナーの割合'); e.sources.forEach(s=>L.push(`- ${s.corner}：${Math.round(s.percent)}%${s.basis ? ' — ' + s.basis : ''}`)); }
   if(e.setBall){ L.push('', '## 次回のセット球の予想', `${e.setBall.pick}${e.setBall.basis ? ' — ' + e.setBall.basis : ''}`); }
-  if(e.picks.length){ L.push('', '## 数字ごとの根拠'); e.picks.forEach(p=>L.push(`- ${aiPad(p.n)}（${p.corner}）：${p.basis}`)); }
+  if(e.surpriseNote) L.push('', '## 意外性の狙い', e.surpriseNote);
+  if(e.picks.length){ L.push('', '## 数字ごとの根拠'); e.picks.forEach(p=>L.push(`- ${aiPad(p.n)}（${p.role ? p.role + '／' : ''}${p.corner}）：${p.basis}`)); }
   if(e.shapeNote) L.push('', '## ラインの動き・形', e.shapeNote);
   if(e.rationale) L.push('', '## 予想の説明', e.rationale);
   if(e.method.steps.length || e.method.changes){
@@ -5895,6 +5903,8 @@ const GG_AI_GUIDE = [
   '',
   '【数字で確かめる（画面と同じ内容）】',
   '  GG_AI.heat(game, n, ball)  積み上げ（n回、ball省略=全回）の重なり',
+  '  GG_AI.growth(game, n, ball) 重複の成長（各マスの直近の増え方・周囲の濃さ・段階 core/rising/halo/gap・領域の偏り）',
+  '  GG_AI.check(game, 数字配列, {n,ball})  予想の点検（役割・定番候補との重なり・過去ラインとの近さ・形の指標）',
   '  GG_AI.setBalls(game)       セット球の出現順・待ち回数',
   '  GG_AI.ball(game, letter, keep)  その球の直近keep回',
   '  GG_AI.placeLine(キー, 数字配列, {ball})  4+1/9+1の自由ラインに予想ラインを置いて形を確かめる',
@@ -5908,6 +5918,10 @@ const GG_AI_GUIDE = [
   '',
   '【ルール】',
   '  ・使ってよいコーナーは 全回・4+1・9+1・重複20。',
+  '  ・目的は「ユーザーの予想外の一手」。多い数字を拾うだけの予想は不可。重複20は合計でなく「成長の過程」（起点→周囲への広がり→伸び→均衡）で読む。',
+  '  ・数字は役割で選ぶ：軸（核）2／周辺（核の周囲で増え始め）2〜3／均衡（偏りの反対側）1〜2／隙間 1／サプライズ 1〜2（定番候補から外れ、形としては成り立つ一手）。各picksに role を書く。',
+  '  ・GG_AI.check で、定番候補との重なりが半分以下、過去ラインに近すぎないことを確かめ、サプライズの狙いを surpriseNote に書く。',
+  '  ・根拠は合計回数ではなく、成長の動き（「直近5回で+2」「核の隣で連続」など）で書く。',
   '  ・各数字の根拠（どのコーナーの、どの数字・動き・形か）、4コーナーの参考割合（合計100%）、セット球の根拠を必ず書く。',
   '  ・予想方法（method）と、前回からの改善点を書く。',
   '  ・当選の保証はない。観察用の記録として、誇張しない。'
@@ -5930,6 +5944,65 @@ const GG_AI_GUIDE = [
     return { game, scope: ball || SCOPE_ALL, windowSize: rows.length, fromNo: rows.length ? rows[0][0] : null, toNo: rows.length ? rows[rows.length-1][0] : null,
              counts, twice: by(2), thrice: by(3), fourOrMore: Object.keys(counts).filter(k=>counts[k] >= 4).map(Number).sort((a,b)=>a-b), absent, steps };
   };
+  // ---- 重複の「成長」：合計ではなく、増え方・周囲への広がり・領域の偏りを返す ----
+  const cellOf = v=>[(v-1)%5, Math.floor((v-1)/5)];
+  const neighborsOf = (v, max)=>{
+    const [c, r] = cellOf(v), out = [];
+    for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++){
+      if(!dr && !dc) continue;
+      const cc = c+dc, rr = r+dr; if(cc < 0 || cc > 4 || rr < 0) continue;
+      const m = rr*5 + cc + 1; if(m >= 1 && m <= max) out.push(m);
+    }
+    return out;
+  };
+  const ZN = ['上','中','下'], ZC = ['左','中','右'];
+  const zoneOf = (v, max)=>{ const [c, r] = cellOf(v), R = Math.ceil(max/5); return ZN[Math.min(2, Math.floor(r*3/R))] + ZC[c < 2 ? 0 : (c === 2 ? 1 : 2)]; };
+  const growthCalc = (game, n, ball)=>{
+    const cfg = gameCfg(chk(game)), rows = scopeRows(game, ball || SCOPE_ALL).slice(-(n || 20)), N = rows.length;
+    const split = Math.max(1, N - 5), count = {}, early = {}, recent = {};
+    rows.forEach((r, i)=>r[2].forEach(v=>{ count[v] = (count[v] || 0) + 1; if(i >= split) recent[v] = (recent[v] || 0) + 1; else early[v] = (early[v] || 0) + 1; }));
+    const cnts = []; for(let v=1; v<=cfg.max; v++) cnts.push(count[v] || 0);
+    const sortedC = [...cnts].sort((a,b)=>b-a), coreMin = Math.max(4, sortedC[Math.floor(cfg.max*0.2)] || 4);
+    const load = {}; for(let v=1; v<=cfg.max; v++) load[v] = neighborsOf(v, cfg.max).reduce((a,m)=>a + (count[m] || 0), 0);
+    const sortedL = Object.values(load).sort((a,b)=>b-a), haloMin = sortedL[Math.floor(cfg.max*0.3)] || 0;
+    const cells = [], zoneCells = {}, zoneCount = {}; let total = 0;
+    for(let v=1; v<=cfg.max; v++){
+      const c = count[v] || 0, rc = recent[v] || 0, ea = early[v] || 0, z = zoneOf(v, cfg.max);
+      zoneCells[z] = (zoneCells[z] || 0) + 1; zoneCount[z] = (zoneCount[z] || 0) + c; total += c;
+      let stage = 'quiet';
+      if(c >= coreMin) stage = rc >= 1 ? 'core' : 'coreFading';
+      else if(rc >= 2) stage = 'rising';
+      else if(c <= 1) stage = 'gap';
+      else if(load[v] >= haloMin) stage = 'halo';
+      cells.push({ n:v, count:c, early:ea, recent5:rc, neighborLoad:load[v], zone:z, stage });
+    }
+    const zones = Object.keys(zoneCells).map(z=>({ zone:z, cells:zoneCells[z], share:Number((zoneCount[z]/Math.max(1,total)).toFixed(3)), expectedShare:Number((zoneCells[z]/cfg.max).toFixed(3)) }))
+      .map(o=>Object.assign(o, { deficit:Number((o.expectedShare - o.share).toFixed(3)) })).sort((a,b)=>b.deficit - a.deficit);
+    const by = st=>cells.filter(c=>c.stage === st).map(c=>c.n);
+    return { game, scope: ball || SCOPE_ALL, windowSize:N, recentWindow:'直近5回', coreThreshold:coreMin, haloThreshold:haloMin,
+             core:by('core'), coreFading:by('coreFading'), rising:by('rising'), halo:by('halo'), gap:by('gap'), zonesByDeficit:zones, cells };
+  };
+  // 予想の点検：定番候補との重なり・過去ラインとの近さ・形の指標・各数字の段階
+  const checkCalc = (game, values, opt)=>{
+    const cfg = gameCfg(chk(game)), vals = (values || []).map(Number), g = growthCalc(game, opt.n || 20, opt.ball);
+    const all = ballAll(game), last = all.length ? all[all.length-1][2] : [];
+    const top = [...g.cells].sort((a,b)=>b.count - a.count).slice(0, cfg.n + 1).map(c=>c.n);
+    const obvious = new Set(top.concat(last));
+    const hitsObv = vals.filter(v=>obvious.has(v));
+    let best = {overlap:0, no:null}, near = 0;
+    all.forEach(r=>{ const o = r[2].filter(v=>vals.includes(v)).length; if(o > best.overlap) best = {overlap:o, no:r[0]}; if(o >= cfg.n - 3) near++; });
+    const sorted = [...vals].sort((a,b)=>a-b), gaps = sorted.slice(1).map((v,i)=>v - sorted[i]);
+    return {
+      picks: sorted.map(v=>{ const c = g.cells[v-1]; return { n:v, stage:c.stage, count:c.count, recent5:c.recent5, neighborLoad:c.neighborLoad, zone:c.zone, isObvious:obvious.has(v) }; }),
+      obviousCandidates: [...obvious].sort((a,b)=>a-b),
+      obviousOverlap: `${hitsObv.length}/${cfg.n}`, obviousNumbers: hitsObv,
+      note: hitsObv.length > cfg.n/2 ? '定番候補が半分を超えています。サプライズを増やしてください' : '定番候補との重なりは半分以下です',
+      closestPastDraw: best, pastDrawsWithManyOverlaps: near,
+      shape: { sum: sorted.reduce((a,b)=>a+b, 0), odd: sorted.filter(v=>v%2).length, maxGap: Math.max(...gaps), consecutivePairs: gaps.filter(d=>d === 1).length,
+               zonesCovered: new Set(sorted.map(v=>zoneOf(v, cfg.max))).size, zones: sorted.map(v=>zoneOf(v, cfg.max)) },
+      zonesByDeficit: g.zonesByDeficit.slice(0, 3)
+    };
+  };
   window.GG_AI = {
     mode: GG_AI_MODE ? 'blind' : 'normal',
     guide(){ return GG_AI_GUIDE; },
@@ -5945,6 +6018,8 @@ const GG_AI_GUIDE = [
       return { track:key, title:document.getElementById('drawId').textContent, sub:document.getElementById('drawDate').textContent };
     },
     heat(game, n, ball){ return heatCalc(game, n, ball); },
+    growth(game, n, ball){ return growthCalc(game, n, ball); },
+    check(game, values, opt){ return checkCalc(game, values, opt || {}); },
     setBalls(game){
       chk(game);
       const rows = ballAll(game), st = ballStats(game), waits = {}, uses = {};
