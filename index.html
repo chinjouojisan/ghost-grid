@@ -91,6 +91,11 @@
   .ov-glabel{ flex:0 0 52px; font-size:11px; font-weight:700; line-height:1.25; }
   .ov-glabel small{ font-weight:400; font-size:9px; color:var(--text-dim); }
   .ov-glabel.violet{ color:#C9A7FF; }
+  .ov-glabel.orange{ color:#FFA64D; }
+  .ov-btn.orange.sel{ background:#FFA64D; border-color:#FFA64D; color:#2a1500; font-weight:700; }
+  .ov-btn.pink.sel{ background:#FF6FC9; border-color:#FF6FC9; color:#2a0a1e; font-weight:700; }
+  .ov-btn.indigo.sel{ background:#9BB0FF; border-color:#9BB0FF; color:#0a1230; font-weight:700; }
+  .gen-idx .ov-btn{ min-width:42px; }
   .ov-btn.violet.sel{ background:#C9A7FF; border-color:#C9A7FF; color:#1c1030; font-weight:700; }
   .ai-top{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-bottom:8px; font-size:11px; color:var(--text-dim); }
   .ai-top select{ background:var(--bg2); color:var(--text); border:1px solid var(--grid-line); border-radius:4px; padding:5px 8px; font-size:12px; max-width:100%; }
@@ -851,6 +856,17 @@
             <button class="tab-btn" data-track="aiLoto6">ロト6</button>
           </div></div>
         </div>
+        <div class="acc" data-acc="gen">
+          <button type="button" class="acc-head"><span class="acc-title">AI生成 V4・A・B</span><span class="acc-cur"></span><span class="acc-arrow">▾</span></button>
+          <div class="acc-body"><div class="acc-tabs">
+            <button class="tab-btn" data-track="genV4Loto7">ロト7 V4</button>
+            <button class="tab-btn" data-track="genALoto7">ロト7 A</button>
+            <button class="tab-btn" data-track="genBLoto7">ロト7 B</button>
+            <button class="tab-btn" data-track="genV4Loto6">ロト6 V4</button>
+            <button class="tab-btn" data-track="genALoto6">ロト6 A</button>
+            <button class="tab-btn" data-track="genBLoto6">ロト6 B</button>
+          </div></div>
+        </div>
       </div>
       <div class="draft-bar">
         <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 予想を記録（下書き・この端末のみ）</button>
@@ -897,6 +913,7 @@
         <div class="ov-group"><span class="ov-glabel green">セット球<br><small>4+1の自由</small></span><div id="ovBtnsBall" class="ov-btns"></div></div>
         <div class="ov-group"><span class="ov-glabel yellow">CO<br><small>CO配置</small></span><div id="ovBtnsCo" class="ov-btns"></div></div>
         <div class="ov-group"><span class="ov-glabel violet">AI<br><small>AI予想</small></span><div id="ovBtnsAi" class="ov-btns"></div></div>
+        <div class="ov-group"><span class="ov-glabel orange">AI生成<br><small>V4・A・B</small></span><div id="ovBtnsGen" class="ov-btns"></div></div>
         <div id="ovLegend" class="ov-legend"></div>
         <div class="ball-note" id="ovNote">ボタンを押すと、そのコーナーの最新の当選ライン（薄い線）と、予想ライン（明るい線）が重なって出ます。予想がまだないときは、最新の当選ラインの上に重なります。選んだ線のうち、右の「動かす」を選んだ1本の点をドラッグできます。ここで動かした形は重ね見専用に保存され、元のコーナーには影響しません。最大5本まで。当選数字の予測ではありません。</div>
       </div>
@@ -913,6 +930,13 @@
           </div>
         </details>
         <div id="aiMsg" class="ai-msg" style="margin-top:6px;"></div>
+      </div>
+      <div id="genBanner" class="ghost-banner" style="display:none;">
+        <div class="ai-top"><span id="genTitle"></span>
+          <label><input type="checkbox" id="genRefChk" checked> 当選ラインを薄く重ねる</label></div>
+        <div id="genIdx" class="ov-btns gen-idx" style="margin:6px 0;"></div>
+        <div class="ai-btns"><button id="genNewBtn" class="draft-save-btn" type="button">別の予想を生む</button><span id="genMsg" class="ai-msg"></span></div>
+        <div class="ball-note" id="genNote"></div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
         青い線と重心は最新回（実データ）のまま固定です。ゴーストは最新回の形から出発します。光る点が渦の軸で、ドラッグで好きな重心位置へ置けます。形は過去全回のギャップ（隣り合う数字の差）をプールして独立に引き直した数字列から作り、過去全回のラインが残した通行の向きに押されて変形し、釣り合った位置で静止します。静止した形が7個の数字になります。当選数字の予測ではありません。
@@ -3816,6 +3840,7 @@ function clearDynamicLayers(){
   heatClear();
   if(typeof ovClear === 'function') ovClear();
   if(typeof aiClear === 'function') aiClear();
+  if(typeof genClear === 'function') genClear();
 }
 
 function setTrack(key){
@@ -3826,6 +3851,7 @@ function setTrack(key){
   document.getElementById('heatBanner').style.display = 'none';
   document.getElementById('overlayBanner').style.display = 'none';
   document.getElementById('aiBanner').style.display = 'none';
+  document.getElementById('genBanner').style.display = 'none';
   document.querySelectorAll('.tab-btn').forEach(b=>{
     b.classList.toggle('active', b.dataset.track === key);
   });
@@ -3864,6 +3890,21 @@ function setTrack(key){
     setGridColumns(5, bGame === 'loto6' ? 43 : 37);
     setBaselineGame(bGame);
     renderBallView(bGame, bCfg.keep, !!bCfg.all);
+    return;
+  }
+
+  if(key in GEN_TRACKS){
+    clearDynamicLayers();
+    document.getElementById('ghostBanner').style.display = 'none';
+    document.getElementById('freeBanner').style.display = 'none';
+    document.getElementById('avgBanner').style.display = 'none';
+    document.getElementById('carryoverAvgBanner').style.display = 'none';
+    document.getElementById('controlsBlock').style.display = 'none';
+    document.getElementById('timelineTicks').style.display = 'none';
+    const gCfg = GEN_TRACKS[key];
+    setGridColumns(5, gCfg.game === 'loto6' ? 43 : 37);
+    setBaselineGame(gCfg.game);
+    renderGenView(gCfg.game, gCfg.corner);
     return;
   }
 
@@ -4517,7 +4558,8 @@ document.getElementById('heatPlayBtn').addEventListener('click', ()=>{
 const OV_TRACKS = { overlayLoto7:'loto7', overlayLoto6:'loto6' };
 const OV_STORE_KEY = 'ggOverlay_v1';
 const OV_MAX = 5;
-const OV_COLORS = { all:'#6FF5FF', ball:'#7CFF8A', co:'#FFE55C', ai:'#C9A7FF' };
+const OV_COLORS = { all:'#6FF5FF', ball:'#7CFF8A', co:'#FFE55C', ai:'#C9A7FF', gV4:'#FFA64D', gA:'#FF6FC9', gB:'#9BB0FF' };
+function ovIsGen(key){ return key === 'gV4' || key === 'gA' || key === 'gB'; }
 const ovG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
 svg.insertBefore(ovG, bodyPath);
 const ovState = { game:null, byGame:{ loto7:{sel:[], active:null}, loto6:{sel:[], active:null} } };
@@ -4530,13 +4572,14 @@ function ovFreeKey(game){ return game === 'loto6' ? 'freeLoto6' : 'freeLoto7'; }
 function ovCoKey(game){ return game === 'loto6' ? 'freeCarry6' : 'freeCarry7'; }
 function ovName(key){
   const [k, v] = key.split(':');
-  return k === 'all' ? `全回 自由${Number(v)+1}` : k === 'ball' ? `セット球 ${v}` : k === 'ai' ? 'AI予想' : 'CO配置';
+  return ovIsGen(k) ? `AI生成 ${k.slice(1)}` : (k === 'all' ? `全回 自由${Number(v)+1}` : k === 'ball' ? `セット球 ${v}` : k === 'ai' ? 'AI予想' : 'CO配置');
 }
 function ovCount(){ return ovState.game === 'loto6' ? 6 : 7; }
 // 最新の当選ライン（各コーナーの最新）
 function ovRef(key){
   const g = ovState.game, [k, v] = key.split(':');
   if(k === 'all') return latestValuesFor(ovFreeKey(g));
+  if(ovIsGen(k)) return latestValuesFor(ovFreeKey(g));
   if(k === 'co' || k === 'ai') return latestValuesFor(k === 'ai' ? ovFreeKey(g) : ovCoKey(g));
   const rows = ballAll(g).filter(r=>r[1] === v);
   return rows.length ? ballSorted(rows[rows.length-1][2]) : null;
@@ -4553,6 +4596,7 @@ function ovSource(key){
     const e = ballLoad(BALL_FREE_KEY, {})[g + ':' + v];
     return (e && Array.isArray(e.values) && e.values.length === n) ? e.values.slice() : null;
   }
+  if(ovIsGen(k)){ const e = genSelected(g, k.slice(1)); return (e && e.values.length === n) ? e.values.slice() : null; }
   if(k === 'ai'){ const e = aiLatest(g); return (e && e.values.length === n) ? e.values.slice() : null; }
   const fs = freeStateStore[ovCoKey(g)];
   if(fs && fs.basePts && fs.basePts.length === n) return fs.basePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1])));
@@ -4591,7 +4635,7 @@ function renderOverlayView(game){
   document.getElementById('overlayBanner').style.display = 'block';
   const st = ovSt();
   // 球に履歴がなくなっていたら外す
-  st.sel = st.sel.filter(k=> (ovKind(k) !== 'ball' || ovRef(k)) && (ovKind(k) !== 'ai' || ovSource(k)));
+  st.sel = st.sel.filter(k=> (ovKind(k) !== 'ball' || ovRef(k)) && (ovKind(k) !== 'ai' || ovSource(k)) && (!ovIsGen(ovKind(k)) || ovSource(k)));
   if(st.active && st.sel.indexOf(st.active) < 0) st.active = st.sel.length ? st.sel[st.sel.length-1] : null;
   ovRender();
 }
@@ -4684,6 +4728,7 @@ function ovSaveActive(){
 function ovToggle(key){
   const st = ovSt();
   const i = st.sel.indexOf(key);
+  if(i < 0 && ovIsGen(key) && !ovSource(key)){ genEnsure(ovState.game, key.slice(1)); }
   if(i < 0){
     if(st.sel.length >= OV_MAX){ document.getElementById('ovCount').textContent = `最大${OV_MAX}本までです。どれかを外してください`; return; }
     st.sel.push(key); st.active = key;
@@ -4707,6 +4752,7 @@ function ovRenderButtons(){
   document.getElementById('ovBtnsBall').innerHTML = BALL_LETTERS.map(b=> mk('ball:'+b, b, 'green', !ballAll(g).some(r=>r[1] === b))).join('');
   document.getElementById('ovBtnsCo').innerHTML = mk('co', 'CO配置', 'yellow');
   document.getElementById('ovBtnsAi').innerHTML = mk('ai', 'AI予想', 'violet', !aiLatest(g));
+  document.getElementById('ovBtnsGen').innerHTML = mk('gV4', 'V4', 'orange') + mk('gA', 'A', 'pink') + mk('gB', 'B', 'indigo');
   document.querySelectorAll('#overlayBanner .ov-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> ovToggle(btn.dataset.ov));
   });
@@ -4720,7 +4766,7 @@ function ovRenderLegend(){
     const vals = ovValues(key);
     const nums = vals.map(v=>String(Math.round(v)).padStart(2,'0')).join(' ');
     const own = !!ovOwn(key);
-    const stateTxt = own ? '重ね見で動かした形' : (ovSource(key) ? (ovKind(key) === 'ai' ? 'AI予想（最新）' : '元コーナーの予想') : '最新の当選ラインと同じ');
+    const stateTxt = own ? '重ね見で動かした形' : (ovSource(key) ? (ovKind(key) === 'ai' ? 'AI予想（最新）' : (ovIsGen(ovKind(key)) ? 'AI生成（選択中の予想）' : '元コーナーの予想')) : '最新の当選ラインと同じ');
     return `<div class="ov-row${st.active === key ? ' act' : ''}" data-ov="${key}"><span class="ov-dot" style="color:${ovColor(key)}">●</span><span class="ov-name">${ovName(key)}</span><span class="ov-nums"><span>${nums}</span><span class="ov-state">${stateTxt}</span></span><button type="button" data-reset="${key}"${own ? '' : ' disabled'}>戻す</button></div>`;
   }).join('');
   box.querySelectorAll('.ov-row').forEach(row=>{
@@ -5727,6 +5773,99 @@ function aiParse(text, game){
   return {ok:true, entry, warn};
 }
 
+
+// ---- AI生成コーナー（V4 / A / B）の表示 ----
+const GEN_TRACKS = {};
+['Loto7', 'Loto6'].forEach(sfx=>{ ['V4', 'A', 'B'].forEach(c=>{ GEN_TRACKS['gen' + c + sfx] = { game: sfx === 'Loto6' ? 'loto6' : 'loto7', corner: c }; }); });
+const GEN_KEY = 'ggGen_v1';
+const GEN_COLORS = { V4:'#FFA64D', A:'#FF6FC9', B:'#9BB0FF' };
+const GEN_LABEL = { V4:'V4（条件で作る）', A:'A（ランダム → 条件で微修正）', B:'B（条件で作る → ランダムで差し替え）' };
+const GEN_NOTE = {
+  V4:'アプリ内で作ったAI予想です。重心の跳び先と9+1の線の動きから骨格を作り、乱数で少しゆらしてから、重複20の成長で整えます。「別の予想を生む」を押すたびに、同じ条件で別の線ができます。',
+  A:'アプリ内で作ったAI予想です。まずランダムに数字を引き、V4と同じ条件（跳び先・ばらけ方・定番との重なりなど）に合うよう1個ずつ入れ替えます。毎回大きく違う線になります。',
+  B:'アプリ内で作ったAI予想です。V4の条件で作った線から、乱数で1〜2個を差し替えます。条件を満たすまで引き直すので、本線に近い形のまま少しだけ変わります。'
+};
+const genG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
+svg.insertBefore(genG, bodyPath);
+const genState = { game:null, corner:null };
+function isGenTrack(){ return typeof trackKey === 'string' && trackKey in GEN_TRACKS; }
+function genStore(){ const s = ballLoad(GEN_KEY, {}); return s && typeof s === 'object' ? s : {}; }
+function genNextNo(game){ return ballStats(game).latest + 1; }
+function genGameStore(game){ const s = genStore(); const g = s[game] || {}; g.items = Array.isArray(g.items) ? g.items : []; g.sel = g.sel || {}; return { all:s, g }; }
+function genList(game, corner){ const no = genNextNo(game); return genGameStore(game).g.items.filter(e=>e.corner === corner && e.targetNo === no).sort((a,b)=>a.k - b.k); }
+function genSelected(game, corner){ const list = genList(game, corner); if(!list.length) return null; const i = genGameStore(game).g.sel[corner + ':' + genNextNo(game)]; return list[Math.min(list.length-1, Math.max(0, Number.isInteger(i) ? i : 0))]; }
+function genSetSel(game, corner, i){ const { all, g } = genGameStore(game); g.sel[corner + ':' + genNextNo(game)] = i; all[game] = g; ballSave(GEN_KEY, all); }
+function genAdd(game, corner){
+  const { all, g } = genGameStore(game), list = genList(game, corner);
+  let k = list.length ? Math.max(...list.map(e=>e.k)) + 1 : 1, e = window.GG_AI.generate(game, corner, k);
+  for(let t=0; t<6 && list.some(x=>x.values.join() === e.values.join()); t++){ k++; e = window.GG_AI.generate(game, corner, k); }
+  g.items.push(e); all[game] = g; ballSave(GEN_KEY, all);
+  genSetSel(game, corner, list.length);
+  return e;
+}
+function genEnsure(game, corner){ while(genList(game, corner).length < 2) genAdd(game, corner); }
+function genClear(){
+  while(genG.firstChild) genG.removeChild(genG.firstChild);
+  if(genState.game){ const r = document.getElementById('aiReport'); if(r) r.style.display = 'none'; document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; }); }
+  genState.game = null;
+}
+function renderGenView(game, corner){
+  genState.game = game; genState.corner = corner;
+  document.getElementById('genBanner').style.display = 'block';
+  document.getElementById('genNote').textContent = GEN_NOTE[corner] + '重心の動きも抽選も乱数とほぼ同じ傾向で、当てやすくなるものではありません。観察用の記録です。';
+  document.getElementById('genTitle').textContent = `${gameCfg(game).label} ・${GEN_LABEL[corner]} ・第${genNextNo(game)}回向け`;
+  if(genList(game, corner).length < 2){
+    document.getElementById('genMsg').textContent = '生成中…';
+    document.getElementById('genIdx').innerHTML = '';
+    setTimeout(()=>{ if(isGenTrack() && genState.game === game && genState.corner === corner){ genEnsure(game, corner); document.getElementById('genMsg').textContent = ''; genRender(); } }, 30);
+    return;
+  }
+  genRender();
+}
+function genRender(){
+  const game = genState.game, corner = genState.corner, cfg = gameCfg(game), list = genList(game, corner), e = genSelected(game, corner);
+  while(genG.firstChild) genG.removeChild(genG.firstChild);
+  ovExitActive(false);
+  const idx = list.findIndex(x=>x.id === e.id);
+  document.getElementById('genIdx').innerHTML = list.map((x, i)=>`<button type="button" class="ov-btn ${corner === 'V4' ? 'orange' : (corner === 'A' ? 'pink' : 'indigo')}${i === idx ? ' sel act' : ''}" data-gi="${i}">${i+1}</button>`).join('');
+  document.querySelectorAll('#genIdx .ov-btn').forEach(b=>b.addEventListener('click', ()=>{ genSetSel(game, corner, Number(b.dataset.gi)); genRender(); }));
+  const col = GEN_COLORS[corner], rep = document.getElementById('aiReport');
+  if(document.getElementById('genRefChk').checked && ballAll(game).length){
+    const rp = ballSorted(ballAll(game)[ballAll(game).length-1][2]).map(gridXY);
+    genG.appendChild(el('path',{d:catmullRomPath(rp), fill:'none', stroke:'#aab4d4', ['stroke-width']:1.3, ['stroke-dasharray']:'4,4', opacity:0.35}));
+    rp.forEach(([x,y])=> genG.appendChild(el('circle',{cx:x, cy:y, r:5, fill:'none', stroke:'#aab4d4', ['stroke-width']:1, opacity:0.4})));
+  }
+  const pts = e.values.map(gridXY);
+  genG.appendChild(el('path',{d:catmullRomPath(pts), fill:'none', stroke:col, ['stroke-width']:2.4, opacity:0.95}));
+  pts.forEach(([x,y], i)=>{
+    genG.appendChild(el('circle',{cx:x, cy:y, r:6, fill:col, opacity:0.95}));
+    const t = el('text',{x:x, y:y-12, ['text-anchor']:'middle', fill:col, ['font-size']:11, ['font-family']:'Space Mono, monospace'});
+    t.textContent = aiPad(e.values[i]); genG.appendChild(t);
+  });
+  document.getElementById('drawId').textContent = `AI生成 ${corner} ・${cfg.label} 第${e.targetNo}回向け（${idx+1}/${list.length}）`;
+  document.getElementById('drawDate').textContent = `セット球の予想 ${e.setBall.pick} ・乱数の種 ${e.seed}`;
+  document.getElementById('bonusNums').innerHTML = '';
+  document.getElementById('mainNums').innerHTML = e.values.map(v=>`<span class="num-chip">${aiPad(v)}</span>`).join('');
+  document.getElementById('shapeMetricNote').textContent = 'AI生成では、指標は表示しません。';
+  document.getElementById('trailTitle').textContent = 'Centroid Drift';
+  while(trailSvg.firstChild) trailSvg.removeChild(trailSvg.firstChild);
+  rep.innerHTML = aiReportHtml(e, game, null);
+  rep.style.display = 'block';
+  document.getElementById('aiRepCopy').addEventListener('click', ()=>aiCopyText(aiReportText(e, game, null), document.getElementById('aiRepMsg'), 'レポートをコピーしました'));
+  document.getElementById('aiRepFile').addEventListener('click', ()=>{
+    try{ aiDownload(`ghost-grid-ai-gen-${corner}-${game}-${e.targetNo}-${e.k}.md`, aiReportText(e, game, null), 'text/markdown'); document.getElementById('aiRepMsg').textContent = 'レポートを保存しました'; }
+    catch(err){ document.getElementById('aiRepMsg').textContent = '保存できませんでした。「コピー」を使ってください'; }
+  });
+}
+(function genWire(){
+  document.getElementById('genNewBtn').addEventListener('click', ()=>{
+    if(!isGenTrack()) return;
+    const msg = document.getElementById('genMsg'); msg.textContent = '生成中…';
+    setTimeout(()=>{ try{ genAdd(genState.game, genState.corner); msg.textContent = ''; genRender(); }catch(err){ msg.textContent = '生成できませんでした'; console.warn(err); } }, 30);
+  });
+  document.getElementById('genRefChk').addEventListener('change', ()=>{ if(isGenTrack() && genList(genState.game, genState.corner).length) genRender(); });
+})();
+
 // ---- AI予想コーナーの表示 ----
 const aiG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
 svg.insertBefore(aiG, bodyPath);
@@ -5840,8 +5979,8 @@ function aiReportHtml(e, game, res){
     + sec('予想の説明', txt(e.rationale))
     + sec(`予想の方法${e.method.version ? '（' + aiEsc(e.method.version) + '）' : ''}`, steps + (e.method.changes ? `<div class="ai-text">改善点：${aiEsc(e.method.changes)}</div>` : ''))
     + sec('あなたの傾向との対比', txt(e.userInsight))
-    + `<div class="ai-btns"><button id="aiRepCopy" class="draft-save-btn" type="button">レポートをコピー</button><button id="aiRepFile" class="draft-save-btn" type="button">ファイルに保存</button>${e.shared ? '' : '<button id="aiRepDel" class="draft-save-btn" type="button" style="background:transparent;color:#ff8a8a;border:1px solid #ff8a8a;">この予想を削除</button>'}<span id="aiRepMsg" class="ai-msg"></span></div>`
-    + `<div class="ai-msg" style="margin-top:8px;">${e.shared ? '共有ファイル（ai-predictions.json）の予想です。消すときはリポジトリのファイルから消してください。<br>' : ''}観察用の記録で、当選を保証するものではありません。</div>`;
+    + `<div class="ai-btns"><button id="aiRepCopy" class="draft-save-btn" type="button">レポートをコピー</button><button id="aiRepFile" class="draft-save-btn" type="button">ファイルに保存</button>${(e.shared || e.gen) ? '' : '<button id="aiRepDel" class="draft-save-btn" type="button" style="background:transparent;color:#ff8a8a;border:1px solid #ff8a8a;">この予想を削除</button>'}<span id="aiRepMsg" class="ai-msg"></span></div>`
+    + `<div class="ai-msg" style="margin-top:8px;">${e.shared ? '共有ファイル（ai-predictions.json）の予想です。消すときはリポジトリのファイルから消してください。<br>' : (e.gen ? `アプリ内で生成した予想です（乱数の種 ${aiEsc(String(e.seed))}）。同じ種なら同じ予想になります。<br>` : '')}観察用の記録で、当選を保証するものではありません。</div>`;
 }
 function aiReportText(e, game, res){
   const cfg = gameCfg(game), d = new Date(e.createdAt), L = [];
@@ -5917,6 +6056,7 @@ const GG_AI_GUIDE = [
   '  GG_AI.check(game, 数字配列, {n,ball})  予想の点検（役割・定番候補との重なり・過去ラインとの近さ・形の指標・ばらけ方の位置・重心の跳び・最新回との重なり）',
   '  GG_AI.jump(game, {ball})   重心の足跡（直近の重心・歩幅・曲がり方）と、次の重心の「跳び先」候補（戻る・平均へ戻る=無難は印つき）',
   '  GG_AI.lineMoves(game, {ball, keep}) 9+1/19+1の線の動き（小さい順の何番目の数字が、次の線でどこへ動いたか）と、線のばらけ方の推移',
+  '  GG_AI.generate(game, corner, k)  アプリ内の生成（corner=V4/A/B、kは番号）。AI生成コーナーと同じ予想を返す',
   '  GG_AI.setBalls(game)       セット球の出現順・待ち回数',
   '  GG_AI.ball(game, letter, keep)  その球の直近keep回',
   '  GG_AI.placeLine(キー, 数字配列, {ball})  4+1/9+1の自由ラインに予想ラインを置いて形を確かめる',
@@ -6093,6 +6233,169 @@ const GG_AI_GUIDE = [
         return { fromLatestDraw: lt, count: lt.length, fromSameBallLatest: bl, note: `最新回の数字との重なり（結果として数えるだけ。狙って選ばない）。0個でもよい。観察上、ロト7は約70%、ロト6は約62%の回が1〜2個で、乱数とほぼ同じ頻度。` }; })()
     };
   };
+
+  // ---- アプリ内でのAI予想の生成（V4 / A / B）---------------------------------------------
+  // V4：重心の跳び先と9+1の線の動きで骨格を作り、重複20の成長で整える（骨格を乱数で少しゆらす）。
+  // A ：ランダムに引いた数字を、V4と同じ条件で微修正する。
+  // B ：V4の条件で作った線の数字を、ランダムに1〜2個差し替える（条件を満たすまで引き直す）。
+  const genHash = str=>{ let h = 2166136261; for(let i=0; i<str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h>>>0; };
+  const genRng = seed=>{ let a = seed>>>0; return ()=>{ a = (a + 0x6D2B79F5)>>>0; let t = Math.imul(a ^ (a>>>15), 1 | a); t = (t + Math.imul(t ^ (t>>>7), 61 | t)) ^ t; return ((t ^ (t>>>14))>>>0)/4294967296; }; };
+  const STAGE_JA = { core:'核', rising:'伸び始め', halo:'周辺', coreFading:'取り残された核', gap:'隙間', quiet:'静かな点' };
+  const STAGE_ROLE = { core:'軸', rising:'周辺', halo:'周辺', coreFading:'隙間', gap:'跳躍', quiet:'均衡' };
+  const STAGE_W = { core:3, rising:3, halo:1.5, coreFading:1.5, gap:0.5, quiet:-0.5 };
+  const pctOf = (sorted, x)=>{ let lo = 0, hi = sorted.length; while(lo < hi){ const m = (lo + hi) >> 1; if(sorted[m] <= x + 1e-9) lo = m + 1; else hi = m; } return Math.round(100*lo/Math.max(1, sorted.length)); };
+
+  const genPickBall = (game, rnd)=>{
+    const st = ballStats(game), rows = ballAll(game), cand = [];
+    let longest = null;
+    BALL_LETTERS.forEach(b=>{ const w = ballWait(st, b); if(w >= 0 && (!longest || w > longest.w)) longest = { b, w }; });
+    BALL_LETTERS.forEach(b=>{
+      const rs = rows.filter(r=>r[1] === b).map(r=>r[0]); if(rs.length < 4) return;
+      const gaps = rs.slice(1).map((x, i)=>x - rs[i]).slice(-6), mean = gaps.reduce((a, c)=>a + c, 0)/gaps.length, w = ballWait(st, b);
+      cand.push({ b, w, mean:r2(mean), ratio:(w + 1)/mean });
+    });
+    const pool = cand.filter(c=>!longest || c.b !== longest.b);
+    let pick = pool.filter(c=>c.ratio >= 0.6);
+    if(!pick.length) pick = [pool.slice().sort((a, b)=>b.ratio - a.ratio)[0]];
+    const tot = pick.reduce((a, c)=>a + c.ratio*c.ratio, 0); let x = rnd()*tot, ch = pick[0];
+    for(const c of pick){ x -= c.ratio*c.ratio; if(x <= 0){ ch = c; break; } }
+    return { ch, longest, candidates: pick.map(c=>c.b).join('・') };
+  };
+
+  const genPrepare = (game, seedStr)=>{
+    const cfg = gameCfg(game), N = cfg.n, MAX = cfg.max, rnd = genRng(genHash(seedStr));
+    const pb = genPickBall(game, rnd), ball = pb.ch.b;
+    const jc = jumpCalc(game, ball), cand = sc=>sc.options.filter(o=>o.verdict === '跳び先の候補');
+    const oa = cand(jc.all), ob = cand(jc.ball);
+    let T = null;
+    for(let t=0; t<80 && !T && oa.length && ob.length; t++){
+      const a = oa[Math.floor(rnd()*oa.length)], b = ob[Math.floor(rnd()*ob.length)];
+      const c = { x:(a.target.x + b.target.x)/2, y:(a.target.y + b.target.y)/2 };
+      const dA = Math.hypot(c.x - jc.all.latest.x, c.y - jc.all.latest.y), dB = Math.hypot(c.x - jc.ball.latest.x, c.y - jc.ball.latest.y);
+      if(dA >= 0.6*jc.all.typicalStep && dA <= 1.6*jc.all.typicalStep && dB >= 0.5*jc.ball.typicalStep && dB <= 1.8*jc.ball.typicalStep) T = { x:c.x, y:c.y, from:a.name + '（全回）／' + b.name + '（' + ball + '球）' };
+    }
+    if(!T){ const o = (ob[0] || oa[0] || { target:{ x:2, y:3 }, name:'—' }); T = { x:o.target.x, y:o.target.y, from:o.name }; }
+    const lm = lineMovesCalc(game, ball, 9), bl = jc.ball.latest;
+    const shift = [T.x - bl.x, T.y - bl.y];
+    const sk = lm.ranks.map(rk=>{ const c = cellOf(rk.latestNumber), w = rk.tendency.indexOf('同じ') === 0 ? 0.5 : -0.5; return [c[0] + shift[0] + w*rk.lastMove.dx, c[1] + shift[1] + w*rk.lastMove.dy]; });
+    const gB = growthCalc(game, 20, ball), gA = growthCalc(game, 20), cellB = {}, cellA = {};
+    gB.cells.forEach(c=>{ cellB[c.n] = c; }); gA.cells.forEach(c=>{ cellA[c.n] = c; });
+    const all = ballAll(game), latestMain = all.length ? all[all.length-1][2] : [], histMain = all.map(r=>r[2]);
+    const topSet = g=>new Set([...g.cells].sort((a, b)=>b.count - a.count).slice(0, N + 1).map(c=>c.n).concat(latestMain));
+    const obB = topSet(gB), obA = topSet(gA);
+    const H = spreadHist(game), hs = { nearest:H.map(h=>h.nearest).sort((a, b)=>a - b), spread:H.map(h=>h.spread).sort((a, b)=>a - b), range:H.map(h=>h.range).sort((a, b)=>a - b) };
+    const typ = jc.all.typicalStep;
+    const ev = vals=>{
+      const v = [...vals].sort((a, b)=>a - b), f = spreadFeats(v), cen = centroidOf(v);
+      const pc = { nearest:pctOf(hs.nearest, f.nearest), spread:pctOf(hs.spread, f.spread), range:pctOf(hs.range, f.range) };
+      const lo = Math.min(pc.nearest, pc.spread, pc.range), hi = Math.max(pc.nearest, pc.spread, pc.range);
+      const dT = Math.hypot(cen.x - T.x, cen.y - T.y);
+      const dAll = Math.hypot(cen.x - jc.all.latest.x, cen.y - jc.all.latest.y), dBall = Math.hypot(cen.x - jc.ball.latest.x, cen.y - jc.ball.latest.y);
+      const back = (j, d)=> j.previous ? Math.hypot(cen.x - j.previous.x, cen.y - j.previous.y) < 0.6*j.typicalStep : false;
+      const backAny = back(jc.all) || back(jc.ball);
+      const ob = v.filter(n=>obB.has(n)).length, oa = v.filter(n=>obA.has(n)).length, carry = v.filter(n=>latestMain.indexOf(n) >= 0).length;
+      const set = new Set(v); let closest = 0; histMain.forEach(m=>{ let o = 0; for(let i=0; i<m.length; i++) if(set.has(m[i])) o++; if(o > closest) closest = o; });
+      const viol = (lo < 20 ? 1 : 0) + (hi > 92 ? 1 : 0) + (backAny ? 1 : 0) + ((dAll < 0.6 || dAll > 1.8) ? 1 : 0) + (ob > Math.floor(N/2) ? 1 : 0) + (oa > Math.floor(N/2) ? 1 : 0) + (closest > N - 3 ? 1 : 0) + (dT > 0.5 ? 1 : 0) + (carry > 2 ? 1 : 0);
+      let score = v.reduce((a, n)=>a + STAGE_W[cellB[n].stage], 0), dist = 0;
+      v.forEach((n, i)=>{ const c = cellOf(n); dist += Math.hypot(c[0] - sk[i][0], c[1] - sk[i][1]); });
+      score += new Set(v.map(n=>zoneOf(n, MAX))).size*0.5 - 0.5*dist;
+      return { vals:v, viol, ok:viol === 0, obj:score - 6*viol, score, pc, cen, dT, dAll, dBall, ob, oa, carry, closest, zones:new Set(v.map(n=>zoneOf(n, MAX))).size };
+    };
+    const climb = (start, rounds)=>{
+      let cur = ev(start);
+      for(let it=0; it<rounds; it++){
+        let best = cur;
+        for(let i=0; i<N; i++) for(let n=1; n<=MAX; n++){ if(cur.vals.indexOf(n) >= 0) continue; const v = cur.vals.slice(); v[i] = n; const e = ev(v); if(e.obj > best.obj + 1e-9) best = e; }
+        if(best === cur) break; cur = best;
+      }
+      return cur;
+    };
+    const snap = pts=>{ const used = new Set(), out = []; pts.forEach(([x, y])=>{ let b = null; for(let n=1; n<=MAX; n++){ if(used.has(n)) continue; const d = Math.hypot((n-1)%5 - x, Math.floor((n-1)/5) - y); if(!b || d < b[0]) b = [d, n]; } used.add(b[1]); out.push(b[1]); }); return out; };
+    const randSet = ()=>{ const a = []; while(a.length < N){ const n = 1 + Math.floor(rnd()*MAX); if(a.indexOf(n) < 0) a.push(n); } return a; };
+    return { game, cfg, N, MAX, rnd, ball, pb, T, sk, lm, jc, gB, gA, cellB, cellA, ev, climb, snap, randSet, latestMain, typ };
+  };
+
+  const genV4 = ctx=>{
+    let best = null;
+    for(let t=0; t<10; t++){
+      const jit = ctx.sk.map(p=>[p[0] + (ctx.rnd() - 0.5), p[1] + (ctx.rnd() - 0.5)]), snapped = ctx.snap(jit), f = ctx.climb(snapped, 3);
+      if(!best || f.obj > best.obj) best = Object.assign({}, f, { snapped });
+      if(f.ok) break;
+    }
+    return best;
+  };
+  const genA = ctx=>{
+    let best = null;
+    for(let t=0; t<12; t++){
+      const start = ctx.randSet(), f = ctx.climb(start, 8);
+      if(!best || f.obj > best.obj) best = Object.assign({}, f, { start });
+      if(f.ok) break;
+    }
+    return best;
+  };
+  const genB = ctx=>{
+    const base = genV4(ctx), baseSet = new Set(base.vals); let best = null, r = 1;
+    for(let t=0; t<800; t++){
+      r = ctx.rnd() < 0.7 ? 1 : 2;
+      const v = base.vals.slice(), idx = []; while(idx.length < r){ const i = Math.floor(ctx.rnd()*ctx.N); if(idx.indexOf(i) < 0) idx.push(i); }
+      const repl = []; idx.forEach(i=>{ let n; do{ n = 1 + Math.floor(ctx.rnd()*ctx.MAX); }while(v.indexOf(n) >= 0); v[i] = n; repl.push(n); });
+      const e = ctx.ev(v);
+      if(!best || e.obj > best.obj) best = Object.assign({}, e, { base, baseSet, repl, r });
+      if(e.ok) break;
+    }
+    return best;
+  };
+
+  const genEntry = (game, corner, k)=>{
+    chk(game);
+    const nextNo = (ballAll(game).length ? ballAll(game)[ballAll(game).length-1][0] : 0) + 1;
+    const seedStr = `${game}|${nextNo}|${corner}|${k}`, cfg = gameCfg(game), ctx = genPrepare(game, seedStr), N = ctx.N, L = ctx.ball;
+    const res = corner === 'A' ? genA(ctx) : (corner === 'B' ? genB(ctx) : genV4(ctx));
+    const vals = res.vals;
+    const origin = n=> corner === 'A' ? (res.start.indexOf(n) >= 0 ? 'start' : 'cond') : (corner === 'B' ? (res.baseSet.has(n) ? 'base' : 'random') : (res.snapped.indexOf(n) >= 0 ? 'skel' : 'cond'));
+    const LAB = { skel:'9+1', cond:'重複20', start:'ランダム', base:'V4の条件（9+1・重複20）', random:'ランダム' };
+    const latestLine = ctx.lm.lines[ctx.lm.lines.length-1];
+    const picks = vals.map((n, i)=>{
+      const c = ctx.cellB[n], a = ctx.cellA[n], o = origin(n), cn = cellOf(n);
+      let why = '';
+      if(o === 'skel'){ const lt = latestLine.main[i], lc = cellOf(lt); why = `9+1の小さい順${i+1}番目は、直近${latestLine.no}回の${lt}から（列${cn[0]-lc[0] >= 0 ? '+' : ''}${cn[0]-lc[0]}、行${cn[1]-lc[1] >= 0 ? '+' : ''}${cn[1]-lc[1]}）動かした位置。`; }
+      else if(o === 'cond') why = corner === 'A' ? 'ランダムの起点を、条件（跳び先・ばらけ方・重複20の成長）で入れ替えた数字。' : '重複20の成長で、骨格の数字から差し替えた数字。';
+      else if(o === 'start') why = 'ランダムに引いた起点が、条件の微修正のあとも残った数字。';
+      else if(o === 'base') why = 'V4の条件で作った本線から残った数字。';
+      else why = 'ランダムに差し替えた数字（条件を満たす組み合わせになるまで引き直した）。';
+      return { n, role:STAGE_ROLE[c.stage], corner:LAB[o], basis:`${L}球の重複20で${c.count}回（${STAGE_JA[c.stage]}）、直近5回で+${c.recent5}。全回では${a.count}回（直近5回で+${a.recent5}）。${why}` };
+    });
+    const cnt = {}; picks.forEach(p=>{ cnt[p.corner] = (cnt[p.corner] || 0) + 1; });
+    const keys = Object.keys(cnt); let pct = keys.map(c=>({ corner:c, raw:100*cnt[c]/N })); let sum = 0; pct.forEach(x=>{ x.percent = Math.floor(x.raw); sum += x.percent; });
+    pct.slice().sort((a, b)=>(b.raw - Math.floor(b.raw)) - (a.raw - Math.floor(a.raw))).slice(0, 100 - sum).forEach(x=>{ x.percent++; });
+    const sources = pct.map(x=>({ corner:x.corner, percent:x.percent, basis:`選んだ${N}個のうち${cnt[x.corner]}個が、この経路から決まった（数字の個数の割合）。` }));
+    sources.push({ corner:'全回・19+1（跳び先）', percent:0, basis:`重心の跳び先（約${r2(ctx.T.x)}, ${r2(ctx.T.y)}）は、${ctx.T.from}の候補を平均して決めた。数字の個数には数えない。` });
+    const sorted = vals;
+    const zonesTxt = sorted.map(v=>zoneOf(v, ctx.MAX));
+    const gaps = sorted.slice(1).map((v, i)=>v - sorted[i]);
+    const sumV = sorted.reduce((a, b)=>a + b, 0), odd = sorted.filter(v=>v%2).length, cons = gaps.filter(d=>d === 1).length;
+    const e = res;
+    const corner_desc = corner === 'A' ? 'ランダムに引いた数字を起点に、同じ条件で微修正した（最大8歩）。' : (corner === 'B' ? `V4の条件で作った線 [${res.base.vals.join(' ')}] から、乱数で${res.r}個（${res.repl.join('・')}）を差し替えた。条件を満たすまで引き直した。` : '重心の跳び先と9+1の線の動きから骨格を作り、乱数で骨格を少しゆらしてから、重複20の成長で整えた。');
+    const methodSteps = [
+      `セット球を決める：最長の待ち（${ctx.pb.longest ? ctx.pb.longest.b + '、' + ctx.pb.longest.w + '回' : '—'}）は本命として外し、再登場間隔を超えつつある球（${ctx.pb.candidates}）から、乱数で${L}を選んだ。`,
+      `重心の跳び先を決める：全回と${L}球の足跡で、前の重心・平均へ戻る動きを避けた候補を平均した（${ctx.T.from}）。`,
+      corner === 'A' ? 'ランダムに数字を引き、跳び先・ばらけ方・定番候補との重なりなどの条件に近づくよう、1個ずつ入れ替えた。' : (corner === 'B' ? 'V4と同じ手順で線を作ったあと、乱数で1〜2個を差し替え、条件を満たすまで引き直した。' : `${L}球の最新の線（${latestLine.no}回）を土台に、小さい順の各rankの数字を、跳び先へ動かして骨格を作った。重複20の成長で整えた。`),
+      '条件：ばらけ方が過去の下位20%未満にならない、重心の歩幅が0.6〜1.8倍、前の重心へ戻らない、定番候補との重なりが半分以下、過去ラインとの重なりがN-3以下、最新回との重なりが2個以下。',
+      '最新回の数字は先に選ばず、できあがった線で重なった数を結果として数えた。'
+    ];
+    const when = new Date();
+    return {
+      id:`gen-${game}-${corner}-${nextNo}-${k}`, gen:true, corner, k, seed:genHash(seedStr), game, targetNo:nextNo, createdAt:when.getTime(), author:`AI生成 ${corner}`,
+      values:vals, setBall:{ pick:L, basis:`${ctx.pb.longest ? '最長の待ちは' + ctx.pb.longest.b + '（' + ctx.pb.longest.w + '回）で本命なので外した。' : ''}${L}は待ち${ctx.pb.ch.w}回、再登場間隔の平均${ctx.pb.ch.mean}回の${r2(ctx.pb.ch.ratio)}倍。間隔を超えつつある球（${ctx.pb.candidates}）から、乱数の種で選んだ。` },
+      picks, sources,
+      surpriseNote:`${corner_desc}重心は(${r2(e.cen.x)}, ${r2(e.cen.y)})で、跳び先（約${r2(ctx.T.x)}, ${r2(ctx.T.y)}）から${r2(e.dT)}。全回の最新の重心から${r2(e.dAll)}（歩幅の目安${r2(ctx.typ)}）、前の重心へは戻っていない。ばらけ方の位置は、隣との近さ${e.pc.nearest}%、広がり${e.pc.spread}%、最大−最小${e.pc.range}%（過去の抽選の中での位置）。定番候補との重なりは全回基準${e.oa}/${N}、${L}球基準${e.ob}/${N}。最新回の数字との重なりは${e.carry}個（結果として数えただけ）。条件${e.ok ? 'をすべて満たした' : 'を一部満たせなかった（最も近い線を採用）'}。`,
+      shapeNote:`小さい順に結ぶと、${zonesTxt.join('→')}を通る線。連続数字${cons}組、合計${sumV}、奇数${odd}個、${new Set(zonesTxt).size}つの領域にまたがる。`,
+      rationale:`アプリ内で、乱数の種（${genHash(seedStr)}）から作った予想（${corner}）。${corner_desc}セット球は${L}。重心の動きも抽選も乱数とほぼ同じ傾向なので、これは当てる確率を上げるものではなく、観察用の記録。当選を保証するものではない。`,
+      method:{ version:`v4-${corner}（アプリ内生成）`, steps:methodSteps, changes:'' },
+      userInsight:''
+    };
+  };
+
   window.GG_AI = {
     mode: GG_AI_MODE ? 'blind' : 'normal',
     guide(){ return GG_AI_GUIDE; },
@@ -6111,6 +6414,7 @@ const GG_AI_GUIDE = [
     growth(game, n, ball){ return growthCalc(game, n, ball); },
     check(game, values, opt){ return checkCalc(game, values, opt || {}); },
     lineMoves(game, opt){ opt = opt || {}; if(opt.ball && !BALL_LETTERS.includes(opt.ball)) throw new Error('ball は A〜J'); return lineMovesCalc(game, opt.ball, opt.keep); },
+    generate(game, corner, k){ if(corner !== 'V4' && corner !== 'A' && corner !== 'B') throw new Error("corner は 'V4' 'A' 'B'"); return genEntry(game, corner, Number(k) || 1); },
     jump(game, opt){ opt = opt || {}; if(opt.ball && !BALL_LETTERS.includes(opt.ball)) throw new Error('ball は A〜J'); return jumpCalc(game, opt.ball); },
     setBalls(game){
       chk(game);
@@ -6173,6 +6477,7 @@ const BACKUP_KEYS = [
   ['ggOverlay_v1',          '重ね見の形'],
   ['ggHeatCfg_v1',          '重複の設定'],
   ['ggAiPred_v1',          'AI予想の履歴'],
+  ['ggGen_v1',             'AI生成の予想（V4・A・B）'],
   ['ggAiNote_v1',          'AI向けの書き出し設定'],
   ['ggDraftPredictions_v1', '記録した予想'],
   ['ggDraftCarryover_v1',   'キャリーオーバーの下書き'],
