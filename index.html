@@ -873,9 +873,11 @@
         <button id="draftToggleBtn" class="draft-toggle-btn" type="button">＋ 予想を記録（下書き・この端末のみ）</button>
         <button id="exportToggleBtn" class="draft-toggle-btn export-toggle-btn" type="button">📋 分析用データを書き出す</button>
         <button id="backupToggleBtn" class="draft-toggle-btn backup-toggle-btn" type="button">💾 保存した線のバックアップ</button>
+        <button id="viewToggleBtn" class="draft-toggle-btn" type="button">📊 見た量と結果</button>
         <div id="draftPanel" class="draft-panel" style="display:none;"></div>
         <div id="exportPanel" class="draft-panel" style="display:none;"></div>
         <div id="backupPanel" class="draft-panel" style="display:none;"></div>
+        <div id="viewPanel" class="draft-panel" style="display:none;"></div>
       </div>
       <div id="freeBanner" class="ghost-banner" style="display:none;">
         各点を自由にドラッグできます。線は自動でついてきます。指を離すと、一番近いマスの中心にスナップします（蠢きはありません・当選数字の予測ではありません）。「自由配置」では予想パターンを10個まで保持でき、右上の丸ボタンで切り替えられます（この端末に保存され、新しい抽選結果が出てもリセットするまで維持されます）。
@@ -968,6 +970,9 @@
         <button id="lnCopy" class="draft-save-btn" type="button">ラインをコピー</button>
         <button id="lnPaste" class="draft-save-btn" type="button">貼り付け</button>
         <button id="scopeSwap" class="draft-save-btn" type="button" style="display:none;">全回⇄球別</button>
+        <span id="confBox" style="display:none;"><span class="ai-msg">自信度</span>
+          <button type="button" class="ov-btn" data-conf="1">低</button><button type="button" class="ov-btn" data-conf="2">中</button><button type="button" class="ov-btn" data-conf="3">高</button></span>
+        <span id="viewInfo" class="ai-msg"></span>
         <span id="lnInfo" class="ai-msg"></span>
       </div>
       <div id="aiReport" class="ai-report" style="display:none;"></div>
@@ -4996,6 +5001,7 @@ function ovRenderLegend(){
 let draftMode = 'result'; // 'result' | 'prediction'
 
 document.getElementById('draftToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('viewPanel').style.display = 'none';
   document.getElementById('exportPanel').style.display = 'none';
   document.getElementById('backupPanel').style.display = 'none';
   const panel = document.getElementById('draftPanel');
@@ -5010,6 +5016,7 @@ document.getElementById('draftToggleBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('exportToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('viewPanel').style.display = 'none';
   document.getElementById('draftPanel').style.display = 'none';
   document.getElementById('backupPanel').style.display = 'none';
   const panel = document.getElementById('exportPanel');
@@ -6016,6 +6023,7 @@ function lnRefresh(note){
     if(tgt){ info += (info ? ' ／ ' : '') + (clip && clip.values ? `コピー中：${clip.label} ${lnFmt(clip.values)}` : 'まだコピーしたラインがありません'); }
   }
   document.getElementById('lnInfo').textContent = info;
+  if(typeof vlUpdateBox === 'function') vlUpdateBox(src);
 }
 document.getElementById('lnCopy').addEventListener('click', ()=>{
   const src = lnSource(); if(!src){ lnRefresh('コピーできるラインがありません'); return; }
@@ -6053,6 +6061,94 @@ document.getElementById('lnPaste').addEventListener('click', ()=>{
 });
 ['click', 'pointerup', 'change', 'input'].forEach(t=>document.addEventListener(t, ()=>setTimeout(()=>lnRefresh(), 80), true));
 setInterval(()=>{ if(!document.hidden && !freePointerActive) lnRefresh(); }, 1500);
+
+// ---- 見た量・自信度の記録と、結果との比較 ---------------------------------------------------
+// 予想ラインが画面に出ている時間と回数、予想前の自信度（低・中・高）を、この端末にだけ記録する。
+// 当選結果が出たあと、見た量・自信度ごとの一致数の平均を、ランダムの期待値と並べて見られる。
+const VIEW_KEY = 'ggViewLog_v1';
+const vlCache = { data:null, dirty:false, lastSig:null, run:0, counted:false };
+function vlLoad(){ if(!vlCache.data) vlCache.data = ballLoad(VIEW_KEY, {}); return vlCache.data; }
+function vlFlush(){ if(vlCache.dirty && vlCache.data){ ballSave(VIEW_KEY, vlCache.data); vlCache.dirty = false; } }
+function vlNextNo(game){ const a = ballAll(game); return a.length ? a[a.length-1][0] + 1 : 0; }
+function vlTrackable(src){ return !!src && src.values && src.values.length > 0 && !/当選ライン|アベレージ/.test(src.label); }
+function vlEntry(src, create){
+  const d = vlLoad(), no = vlNextNo(src.game), sig = src.values.join(',');
+  const gk = src.game + '|' + no;
+  d[gk] = d[gk] || {};
+  if(!d[gk][sig]){ if(!create) return null; d[gk][sig] = { values:src.values.slice(), label:src.label, views:0, ms:0, conf:0 }; }
+  const e = d[gk][sig]; e.label = src.label; return e;
+}
+function vlTick(){
+  if(document.hidden || freePointerActive){ return; }
+  let src = null; try{ src = lnSource(); }catch(e){}
+  if(!vlTrackable(src)){ vlCache.lastSig = null; vlCache.run = 0; vlCache.counted = false; vlFlush(); return; }
+  const sig = src.game + '|' + vlNextNo(src.game) + '|' + src.values.join(',');
+  const e = vlEntry(src, true);
+  if(sig !== vlCache.lastSig){ vlCache.lastSig = sig; vlCache.run = 0; vlCache.counted = false; }
+  vlCache.run++; e.ms += 1000; vlCache.dirty = true;
+  if(!vlCache.counted && vlCache.run >= 2){ e.views++; vlCache.counted = true; }
+  if(vlCache.run % 5 === 0) vlFlush();
+}
+setInterval(vlTick, 1000);
+document.addEventListener('visibilitychange', vlFlush); window.addEventListener('pagehide', vlFlush);
+function vlUpdateBox(src){
+  const box = document.getElementById('confBox'), info = document.getElementById('viewInfo');
+  if(!box) return;
+  if(!vlTrackable(src)){ box.style.display = 'none'; info.textContent = ''; return; }
+  const e = vlEntry(src, false);
+  box.style.display = '';
+  box.querySelectorAll('[data-conf]').forEach(b=>b.classList.toggle('sel', e && e.conf === Number(b.dataset.conf)));
+  info.textContent = e ? `見た回数${e.views}回・累計${(e.ms/60000).toFixed(1)}分` : '';
+}
+document.getElementById('confBox').addEventListener('click', (ev)=>{
+  const b = ev.target.closest('[data-conf]'); if(!b) return;
+  const src = lnSource(); if(!vlTrackable(src)) return;
+  const e = vlEntry(src, true); const v = Number(b.dataset.conf);
+  e.conf = e.conf === v ? 0 : v; vlCache.dirty = true; vlFlush(); vlUpdateBox(src);
+});
+function vlRows(){
+  const d = vlLoad(), out = [];
+  Object.keys(d).forEach(gk=>{
+    const [game, noS] = gk.split('|'), no = Number(noS), row = ballAll(game).find(r=>r[0] === no);
+    if(!row) return;
+    const act = new Set(row[2]);
+    Object.values(d[gk]).forEach(e=>{
+      if(e.ms < 2000) return;
+      out.push({ game, no, label:e.label, values:e.values, views:e.views, ms:e.ms, conf:e.conf, match:e.values.filter(v=>act.has(v)).length, ball:row[1] });
+    });
+  });
+  return out;
+}
+function vlGroupHtml(title, groups, exp){
+  const mean = a=>a.reduce((x, y)=>x + y, 0) / a.length;
+  return `<div style="margin-top:8px;font-weight:700;">${title}</div>` + groups.map(([name, rows])=>{
+    if(!rows.length) return `<div class="ai-msg">${name}：該当なし</div>`;
+    const m = mean(rows.map(r=>r.match));
+    return `<div class="ai-msg">${name}：${rows.length}本　一致数の平均 ${m.toFixed(2)}（ランダムの期待値 ${exp.toFixed(2)}）</div>`;
+  }).join('');
+}
+function vlRender(){
+  const panel = document.getElementById('viewPanel'), rows = vlRows();
+  let html = '<div class="ai-msg" style="line-height:1.7;">予想ラインを画面で見た量と、予想前に付けた自信度を、当選結果が出たあとに比べます。この端末にだけ保存されます。<b>当選を保証するものではなく、偶然との区別には数十本以上が必要です。</b></div>';
+  [['loto7', 'ロト7', 37, 7], ['loto6', 'ロト6', 43, 6]].forEach(([g, label, max, n])=>{
+    const rs = rows.filter(r=>r.game === g), exp = n*n/max;
+    html += `<div style="margin-top:12px;font-weight:700;color:#8FE0EE;">${label}（結果が出た予想 ${rs.length}本）</div>`;
+    if(!rs.length){ html += '<div class="ai-msg">まだ比べられる予想がありません。予想ラインを表示して自信度を付け、結果が出るのを待ってください。</div>'; return; }
+    const sorted = rs.slice().sort((a, b)=>a.ms - b.ms), t = Math.ceil(sorted.length/3);
+    html += vlGroupHtml('見た時間で3つに分ける', [['短い', sorted.slice(0, t)], ['中くらい', sorted.slice(t, 2*t)], ['長い', sorted.slice(2*t)]], exp);
+    html += vlGroupHtml('自信度', [['高', rs.filter(r=>r.conf === 3)], ['中', rs.filter(r=>r.conf === 2)], ['低', rs.filter(r=>r.conf === 1)], ['未入力', rs.filter(r=>!r.conf)]], exp);
+    const se = Math.sqrt(n*(n/max)*(1-n/max)*(max-n)/(max-1) / rs.length);
+    html += `<div class="ai-msg">この本数での平均のぶれは±${se.toFixed(2)}程度です。${rs.length < 30 ? '本数がまだ少ないため、差が出ても偶然と区別できません。' : 'ぶれより大きな差があるかを見てください。'}</div>`;
+    html += '<div style="margin-top:8px;font-size:11px;line-height:1.7;">' + rs.sort((a, b)=>b.no - a.no || b.match - a.match).slice(0, 30).map(r=>`第${r.no}回 ${r.label}：${r.values.map(v=>String(v).padStart(2,'0')).join(' ')}　見${r.views}回・${(r.ms/60000).toFixed(1)}分・自信${['—','低','中','高'][r.conf]}・一致${r.match}`).join('<br>') + '</div>';
+  });
+  panel.innerHTML = html;
+}
+document.getElementById('viewToggleBtn').addEventListener('click', ()=>{
+  ['draftPanel','exportPanel','backupPanel'].forEach(id=>{ document.getElementById(id).style.display = 'none'; });
+  const panel = document.getElementById('viewPanel');
+  if(panel.style.display !== 'none'){ panel.style.display = 'none'; }
+  else { vlFlush(); vlCache.data = null; vlRender(); panel.style.display = 'block'; }
+});
 
 // ---- AI生成コーナー（V4 / A / B）の表示 ----
 const GEN_TRACKS = {};
@@ -6795,6 +6891,7 @@ const BACKUP_KEYS = [
   ['ggGen_v1',             'AI生成の予想（V4・A・B）'],
   ['ggHeatPaste_v1',       '重複に貼り付けたライン'],
   ['ggOverlayHeat_v1',     '重ね見の重複設定'],
+  ['ggViewLog_v1',         '見た量・自信度の記録'],
   ['ggClip_v1',            'コピーしたライン'],
   ['ggAiNote_v1',          'AI向けの書き出し設定'],
   ['ggDraftPredictions_v1', '記録した予想'],
@@ -6919,6 +7016,7 @@ function renderBackupPanel(){
 }
 
 document.getElementById('backupToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('viewPanel').style.display = 'none';
   document.getElementById('draftPanel').style.display = 'none';
   document.getElementById('exportPanel').style.display = 'none';
   const panel = document.getElementById('backupPanel');
