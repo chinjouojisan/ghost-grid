@@ -874,10 +874,12 @@
         <button id="exportToggleBtn" class="draft-toggle-btn export-toggle-btn" type="button">📋 分析用データを書き出す</button>
         <button id="backupToggleBtn" class="draft-toggle-btn backup-toggle-btn" type="button">💾 保存した線のバックアップ</button>
         <button id="viewToggleBtn" class="draft-toggle-btn" type="button">📊 見た量と結果</button>
+        <button id="beautyToggleBtn" class="draft-toggle-btn" type="button">🎨 美しさの学習</button>
         <div id="draftPanel" class="draft-panel" style="display:none;"></div>
         <div id="exportPanel" class="draft-panel" style="display:none;"></div>
         <div id="backupPanel" class="draft-panel" style="display:none;"></div>
         <div id="viewPanel" class="draft-panel" style="display:none;"></div>
+        <div id="beautyPanel" class="draft-panel" style="display:none;"></div>
       </div>
       <div id="freeBanner" class="ghost-banner" style="display:none;">
         各点を自由にドラッグできます。線は自動でついてきます。指を離すと、一番近いマスの中心にスナップします（蠢きはありません・当選数字の予測ではありません）。「自由配置」では予想パターンを10個まで保持でき、右上の丸ボタンで切り替えられます（この端末に保存され、新しい抽選結果が出てもリセットするまで維持されます）。
@@ -968,6 +970,7 @@
       </div>
       <div id="lineTools" class="line-tools" style="display:none;">
         <button id="lnCopy" class="draft-save-btn" type="button">ラインをコピー</button>
+        <button id="lnFav" class="draft-save-btn" type="button" style="display:none;">★ 美しい</button>
         <button id="lnPaste" class="draft-save-btn" type="button">貼り付け</button>
         <button id="scopeSwap" class="draft-save-btn" type="button" style="display:none;">全回⇄球別</button>
         <span id="confBox" style="display:none;"><span class="ai-msg">自信度</span>
@@ -5010,6 +5013,7 @@ function ovRenderLegend(){
 let draftMode = 'result'; // 'result' | 'prediction'
 
 document.getElementById('draftToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('beautyPanel').style.display = 'none';
   document.getElementById('viewPanel').style.display = 'none';
   document.getElementById('exportPanel').style.display = 'none';
   document.getElementById('backupPanel').style.display = 'none';
@@ -5025,6 +5029,7 @@ document.getElementById('draftToggleBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('exportToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('beautyPanel').style.display = 'none';
   document.getElementById('viewPanel').style.display = 'none';
   document.getElementById('draftPanel').style.display = 'none';
   document.getElementById('backupPanel').style.display = 'none';
@@ -6017,7 +6022,9 @@ function lnPasteTarget(){
   return null;
 }
 function lnFmt(v){ return v.map(x=>String(x).padStart(2,'0')).join(' '); }
+let lnNoteKeep = { text:'', until:0 };
 function lnRefresh(note){
+  if(note) lnNoteKeep = { text:note, until:Date.now() + 6000 }; else if(Date.now() < lnNoteKeep.until) note = lnNoteKeep.text;
   const box = document.getElementById('lineTools'); if(!box) return;
   const src = lnSource(), tgt = lnPasteTarget(), clip = ballLoad(CLIP_KEY, null);
   const sib = scopeSibling(trackKey), ss = document.getElementById('scopeSwap');
@@ -6025,6 +6032,7 @@ function lnRefresh(note){
   if(sib){ const isAll = !!(BALL_TRACKS[trackKey] || HEAT_TRACKS[trackKey]).all; ss.textContent = isAll ? '球別に切り替え（いま：全回）' : '全回に切り替え（いま：球別）'; }
   box.style.display = (src || tgt || sib) ? 'flex' : 'none';
   document.getElementById('lnCopy').style.display = src ? '' : 'none';
+  document.getElementById('lnFav').style.display = src ? '' : 'none';
   const pb = document.getElementById('lnPaste');
   pb.style.display = tgt ? '' : 'none';
   pb.disabled = !(clip && Array.isArray(clip.values));
@@ -6156,10 +6164,121 @@ function vlRender(){
   panel.innerHTML = html;
 }
 document.getElementById('viewToggleBtn').addEventListener('click', ()=>{
-  ['draftPanel','exportPanel','backupPanel'].forEach(id=>{ document.getElementById(id).style.display = 'none'; });
+  document.getElementById('beautyPanel').style.display = 'none';
+  ['draftPanel','exportPanel','backupPanel','beautyPanel'].forEach(id=>{ document.getElementById(id).style.display = 'none'; });
   const panel = document.getElementById('viewPanel');
   if(panel.style.display !== 'none'){ panel.style.display = 'none'; }
   else { vlFlush(); vlCache.data = null; vlRender(); panel.style.display = 'block'; }
+});
+
+// ---- 美しさの学習 ------------------------------------------------------------------------------
+// 線の「形」を7つの特徴で数値にし、「どちらが美しいか」の選択から、えいいちさんの好みの重みを少しずつ学ぶ。
+// 学んだ重みは、この端末の「別の予想を生む」で、候補12本から選ぶときの物差しに使う（自動生成の共有分は重みなし）。
+const BEAUTY_KEY = 'ggBeauty_v1';
+const BEAUTY_FEATS = [
+  ['tension', '緊張', '小さな歩幅の中に、1か所だけ大きな跳び'],
+  ['flow',    '流れ', '向きの変わり方がなめらか'],
+  ['offset',  '偏り', '重心がグリッドの中心からずれている'],
+  ['counter', '釣り合い', '偏りの反対側にも点がある'],
+  ['contrast','疎密', '固まった所と空いた所の対比'],
+  ['presence','存在感', '線が長く、画面を大きく使う'],
+  ['span',    '広がり', '線が囲む範囲の大きさ']
+];
+function beautyLoad(){
+  const b = ballLoad(BEAUTY_KEY, null) || {};
+  const w = Array.isArray(b.w) && b.w.length === BEAUTY_FEATS.length ? b.w : new Array(BEAUTY_FEATS.length).fill(0);
+  return { w, n: b.n || 0, favs: Array.isArray(b.favs) ? b.favs : [] };
+}
+function beautySave(b){ ballSave(BEAUTY_KEY, b); }
+function lineFeatures(game, values){
+  const rows = game === 'loto6' ? 9 : 8, diag = Math.hypot(4, rows - 1), v = ballSorted(values);
+  const P = v.map(n=>[(n-1)%5, Math.floor((n-1)/5)]), n = P.length;
+  const clamp = x=>Math.max(0, Math.min(1, x));
+  const steps = []; for(let i=1;i<n;i++) steps.push(Math.hypot(P[i][0]-P[i-1][0], P[i][1]-P[i-1][1]));
+  const med = steps.slice().sort((a, b)=>a - b)[Math.floor(steps.length/2)] || 1;
+  const tension = clamp((Math.max(...steps) / Math.max(0.5, med) - 1) / 3);
+  const turns = []; for(let i=1;i<n-1;i++){
+    const a1 = Math.atan2(P[i][1]-P[i-1][1], P[i][0]-P[i-1][0]), a2 = Math.atan2(P[i+1][1]-P[i][1], P[i+1][0]-P[i][0]);
+    let d = Math.abs(a2 - a1); if(d > Math.PI) d = 2*Math.PI - d; turns.push(d);
+  }
+  const flow = turns.length ? 1 - turns.reduce((a, b)=>a + b, 0) / turns.length / Math.PI : 1;
+  const cx = P.reduce((a, p)=>a + p[0], 0) / n, cy = P.reduce((a, p)=>a + p[1], 0) / n, gx = 2, gy = (rows - 1) / 2;
+  const od = Math.hypot(cx - gx, cy - gy), offset = clamp(od / (diag / 4));
+  let counter = 0.5;
+  if(od > 0.05){ const ux = (gx - cx) / od, uy = (gy - cy) / od; counter = clamp(Math.max(...P.map(p=>(p[0]-cx)*ux + (p[1]-cy)*uy)) / (diag / 2)); }
+  const nn = P.map((p, i)=>Math.min(...P.map((q, j)=>i === j ? 99 : Math.hypot(p[0]-q[0], p[1]-q[1]))));
+  const mnn = nn.reduce((a, b)=>a + b, 0) / n, cv = Math.sqrt(nn.reduce((a, b)=>a + (b - mnn)*(b - mnn), 0) / n) / Math.max(0.1, mnn);
+  const contrast = clamp(cv);
+  const len = steps.reduce((a, b)=>a + b, 0), presence = clamp(len / ((n - 1) * diag / 2.5));
+  const w = Math.max(...P.map(p=>p[0])) - Math.min(...P.map(p=>p[0])), h = Math.max(...P.map(p=>p[1])) - Math.min(...P.map(p=>p[1]));
+  const span = clamp((w * h) / (4 * (rows - 1)) * 1.2);
+  return [tension, flow, offset, counter, contrast, presence, span];
+}
+function beautyScore(game, values, b){ b = b || beautyLoad(); const f = lineFeatures(game, values); return f.reduce((a, x, i)=>a + x * b.w[i], 0); }
+function beautyLearn(b, winF, loseF){
+  const d = winF.map((x, i)=>x - loseF[i]), z = d.reduce((a, x, i)=>a + x * b.w[i], 0), g = 1 / (1 + Math.exp(z));
+  b.w = b.w.map((wi, i)=>Math.max(-5, Math.min(5, wi + 1.2 * g * d[i]))); b.n++;
+}
+function beautyRandomLine(game){
+  const corners = ['V4', 'A', 'B'], c = corners[Math.floor(Math.random()*3)], k = 100 + Math.floor(Math.random()*9000);
+  return window.GG_AI.generate(game, c, k).values;
+}
+// 「美しい」としてお気に入り登録（普段の予想ライン1本に、勝ったものとして学習する）
+document.getElementById('lnFav').addEventListener('click', ()=>{
+  const src = lnSource(); if(!src) return;
+  const b = beautyLoad(), vals = ballSorted(src.values);
+  if(!b.favs.some(f=>f.game === src.game && f.values.join() === vals.join())) b.favs.push({ game:src.game, values:vals, label:src.label });
+  if(b.favs.length > 50) b.favs.shift();
+  let lose = beautyRandomLine(src.game), t = 0; while(lose.join() === vals.join() && t++ < 5) lose = beautyRandomLine(src.game);
+  beautyLearn(b, lineFeatures(src.game, vals), lineFeatures(src.game, lose)); beautySave(b);
+  lnRefresh(`★ お気に入りにしました（学習 ${b.n} 回）。「🎨 美しさの学習」で、重視している特徴を見られます`);
+});
+const bp = { game:'loto7', pair:null };
+function bpMini(game, values, color){
+  const rows = game === 'loto6' ? 9 : 8, W = 5*26, H = rows*26, maxN = game === 'loto6' ? 43 : 37;
+  const xy = n=>[((n-1)%5)*26 + 13, Math.floor((n-1)/5)*26 + 13];
+  let dots = ''; for(let n=1;n<=maxN;n++){ const [x, y] = xy(n); dots += `<circle cx="${x}" cy="${y}" r="1.6" fill="#3a4a6a"/>`; }
+  const pts = ballSorted(values).map(xy);
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:160px;background:#0b1224;border-radius:8px;">${dots}<path d="${catmullRomPath(pts)}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9"/>${pts.map(([x, y])=>`<circle cx="${x}" cy="${y}" r="3.6" fill="${color}"/>`).join('')}</svg>`;
+}
+function bpNewPair(){
+  const g = bp.game; let a = beautyRandomLine(g), b = beautyRandomLine(g), t = 0;
+  while(a.join() === b.join() && t++ < 5) b = beautyRandomLine(g);
+  bp.pair = [ballSorted(a), ballSorted(b)];
+}
+function bpRender(){
+  const panel = document.getElementById('beautyPanel'), b = beautyLoad();
+  if(!bp.pair) bpNewPair();
+  const [A, B] = bp.pair, maxAbs = Math.max(0.5, ...b.w.map(Math.abs));
+  const bars = BEAUTY_FEATS.map(([k, name, desc], i)=>{
+    const pct = Math.round(Math.abs(b.w[i]) / maxAbs * 50), pos = b.w[i] >= 0;
+    return `<div style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:11px;"><span style="flex:0 0 58px;">${name}</span><span style="flex:1;position:relative;height:8px;background:#1a2540;border-radius:4px;"><span style="position:absolute;top:0;height:8px;${pos ? 'left:50%' : 'right:50%'};width:${pct}%;background:${pos ? '#7CFF8A' : '#ff8a8a'};border-radius:4px;"></span></span><span style="flex:0 0 120px;color:var(--text-dim);font-size:10px;">${desc}</span></div>`;
+  }).join('');
+  panel.innerHTML = `
+    <div class="ai-msg" style="line-height:1.7;">2本のうち、<b>パッと見て美しい・存在感がある</b>と感じるほうを選んでください。選ぶたびに、重視する形の特徴が少しずつ学習されます。当選とは関係ありません。</div>
+    <div style="margin:8px 0;"><button type="button" class="ov-btn${bp.game === 'loto7' ? ' sel act' : ''}" data-bg="loto7">ロト7</button> <button type="button" class="ov-btn${bp.game === 'loto6' ? ' sel act' : ''}" data-bg="loto6">ロト6</button></div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <div style="flex:1;text-align:center;">${bpMini(bp.game, A, '#6FF5FF')}<div style="margin-top:4px;font-size:11px;">${A.map(v=>String(v).padStart(2,'0')).join(' ')}</div><button type="button" class="draft-save-btn" data-bp="0" style="margin-top:6px;">左が美しい</button></div>
+      <div style="flex:1;text-align:center;">${bpMini(bp.game, B, '#FFA64D')}<div style="margin-top:4px;font-size:11px;">${B.map(v=>String(v).padStart(2,'0')).join(' ')}</div><button type="button" class="draft-save-btn" data-bp="1" style="margin-top:6px;">右が美しい</button></div>
+    </div>
+    <div style="text-align:center;margin-top:8px;"><button type="button" class="ov-btn" data-bp="skip">どちらでもない（次へ）</button></div>
+    <div style="margin-top:12px;font-weight:700;color:#8FE0EE;">いま重視している特徴（学習 ${b.n} 回・お気に入り ${b.favs.length} 本）</div>
+    ${b.n < 5 ? '<div class="ai-msg">まだ学習が少ないため、予想の生成には反映されません（5回以上で反映）。</div>' : '<div class="ai-msg">AI生成の「別の予想を生む」で、候補12本から、この好みに近い線を選びます。</div>'}
+    <div style="margin-top:6px;">${bars}</div>
+    <div style="margin-top:8px;"><button type="button" class="ov-btn" id="bpReset">学習をリセット</button></div>`;
+  panel.querySelectorAll('[data-bg]').forEach(x=>x.addEventListener('click', ()=>{ bp.game = x.dataset.bg; bp.pair = null; bpRender(); }));
+  panel.querySelectorAll('[data-bp]').forEach(x=>x.addEventListener('click', ()=>{
+    const v = x.dataset.bp;
+    if(v !== 'skip'){ const wi = Number(v), W = bp.pair[wi], L = bp.pair[1 - wi], bb = beautyLoad(); beautyLearn(bb, lineFeatures(bp.game, W), lineFeatures(bp.game, L)); beautySave(bb); }
+    bp.pair = null; bpRender();
+  }));
+  document.getElementById('bpReset').addEventListener('click', ()=>{ if(confirm('美しさの学習をリセットします。よろしいですか？')){ beautySave({ w:new Array(BEAUTY_FEATS.length).fill(0), n:0, favs:[] }); bpRender(); } });
+}
+document.getElementById('beautyToggleBtn').addEventListener('click', ()=>{
+  ['draftPanel','exportPanel','backupPanel','viewPanel'].forEach(id=>{ document.getElementById(id).style.display = 'none'; });
+  const panel = document.getElementById('beautyPanel');
+  if(panel.style.display !== 'none'){ panel.style.display = 'none'; }
+  else { bp.pair = null; bpRender(); panel.style.display = 'block'; }
 });
 
 // ---- AI生成コーナー（V4 / A / B）の表示 ----
@@ -6194,6 +6313,18 @@ function genAdd(game, corner){
   const no = genNextNo(game), ks = ((window.GG_GEN_REPO || {})[game] || []).concat(g.items).filter(x=>x && x.corner === corner && x.targetNo === no).map(x=>x.k).concat(Object.keys(g.hidden).filter(id=>id.indexOf(`gen-${game}-${corner}-${no}-`) === 0).map(id=>Number(id.split('-').pop())));
   let k = (list.length || ks.length) ? Math.max(0, ...list.map(x=>x.k), ...ks) + 1 : 1, e = window.GG_AI.generate(game, corner, k);
   for(let t=0; t<6 && list.some(x=>x.values.join() === e.values.join()); t++){ k++; e = window.GG_AI.generate(game, corner, k); }
+  const bt = beautyLoad();
+  if(bt.n >= 5){
+    // 美しさの学習を反映：候補12本から、好みの特徴に最も近い線を選ぶ
+    let best = e, bs = beautyScore(game, e.values, bt);
+    for(let j=1; j<12; j++){
+      const c = window.GG_AI.generate(game, corner, k + j);
+      if(list.some(x=>x.values.join() === c.values.join())) continue;
+      const sc = beautyScore(game, c.values, bt); if(sc > bs){ bs = sc; best = c; }
+    }
+    e = best; e.beauty = Math.round(bs*100)/100;
+    e.rationale = (e.rationale || '') + '（美しさの学習を反映：候補12本から、好みの特徴に最も近い線を選んだ）';
+  }
   g.items.push(e); all[game] = g; ballSave(GEN_KEY, all);
   genSetSel(game, corner, list.length);
   return e;
@@ -6912,6 +7043,7 @@ const BACKUP_KEYS = [
   ['ggHeatPaste_v1',       '重複に貼り付けたライン'],
   ['ggOverlayHeat_v1',     '重ね見の重複設定'],
   ['ggViewLog_v1',         '見た量・自信度の記録'],
+  ['ggBeauty_v1',          '美しさの学習'],
   ['ggClip_v1',            'コピーしたライン'],
   ['ggAiNote_v1',          'AI向けの書き出し設定'],
   ['ggDraftPredictions_v1', '記録した予想'],
@@ -7036,6 +7168,7 @@ function renderBackupPanel(){
 }
 
 document.getElementById('backupToggleBtn').addEventListener('click', ()=>{
+  document.getElementById('beautyPanel').style.display = 'none';
   document.getElementById('viewPanel').style.display = 'none';
   document.getElementById('draftPanel').style.display = 'none';
   document.getElementById('exportPanel').style.display = 'none';
