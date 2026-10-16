@@ -96,6 +96,7 @@
   .ov-btn.pink.sel{ background:#FF6FC9; border-color:#FF6FC9; color:#2a0a1e; font-weight:700; }
   .ov-btn.indigo.sel{ background:#9BB0FF; border-color:#9BB0FF; color:#0a1230; font-weight:700; }
   .gen-idx .ov-btn{ min-width:42px; }
+  .line-tools{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0 4px; }
   .ov-btn.violet.sel{ background:#C9A7FF; border-color:#C9A7FF; color:#1c1030; font-weight:700; }
   .ai-top{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin-bottom:8px; font-size:11px; color:var(--text-dim); }
   .ai-top select{ background:var(--bg2); color:var(--text); border:1px solid var(--grid-line); border-radius:4px; padding:5px 8px; font-size:12px; max-width:100%; }
@@ -906,6 +907,11 @@
           <button id="heatLinesBtn" type="button" class="overlay-toggle-btn mist active">ライン</button>
         </div>
         <div class="ball-note" id="heatNote"></div>
+        <div id="heatPasteBar" class="ai-btns" style="display:none; margin-top:6px;">
+          <span class="ai-msg" id="heatPasteTxt"></span>
+          <button id="heatPasteReset" class="draft-save-btn" type="button">貼り付けた位置に戻す</button>
+          <button id="heatPasteClear" class="draft-save-btn" type="button" style="background:transparent;color:#ff8a8a;border:1px solid #ff8a8a;">ラインを消す</button>
+        </div>
       </div>
       <div id="overlayBanner" class="ghost-banner" style="display:none;">
         <div class="ov-count" id="ovCount"></div>
@@ -935,7 +941,7 @@
         <div class="ai-top"><span id="genTitle"></span>
           <label><input type="checkbox" id="genRefChk" checked> 当選ラインを薄く重ねる</label></div>
         <div id="genIdx" class="ov-btns gen-idx" style="margin:6px 0;"></div>
-        <div class="ai-btns"><button id="genNewBtn" class="draft-save-btn" type="button">別の予想を生む</button><span id="genMsg" class="ai-msg"></span></div>
+        <div class="ai-btns"><button id="genNewBtn" class="draft-save-btn" type="button">別の予想を生む</button><button id="genDelBtn" class="draft-save-btn" type="button" style="background:transparent;color:#ff8a8a;border:1px solid #ff8a8a;">この予想を削除</button><span id="genMsg" class="ai-msg"></span></div>
         <div class="ball-note" id="genNote"></div>
       </div>
       <div id="ghostBanner" class="ghost-banner" style="display:none;">
@@ -949,6 +955,11 @@
       </div>
       <div class="svg-wrap">
         <svg id="mainSvg" viewBox="0 0 700 620"></svg>
+      </div>
+      <div id="lineTools" class="line-tools" style="display:none;">
+        <button id="lnCopy" class="draft-save-btn" type="button">ラインをコピー</button>
+        <button id="lnPaste" class="draft-save-btn" type="button">貼り付け</button>
+        <span id="lnInfo" class="ai-msg"></span>
       </div>
       <div id="aiReport" class="ai-report" style="display:none;"></div>
       <div id="predictionLogView" style="display:none;"></div>
@@ -3137,12 +3148,16 @@ function renderFreeFrame(){
     document.getElementById('drawDate').textContent = ballState.freeTouched ? '動かした形はこの端末に保存されています' : `${ballState.keep}本目と同じ位置から。点をドラッグして動かせます`;
     const fn = document.getElementById('ballFreeNums');
     if(fn) fn.textContent = values.map(v=>String(Math.round(v)).padStart(2,'0')).join(' ');
+  } else if(isHeatTrack()){
+    document.getElementById('drawDate').textContent = '貼り付けライン：' + values.map(v=>String(Math.round(v)).padStart(2,'0')).join(' ') + '（点をドラッグして動かせます）';
   } else {
     document.getElementById('drawId').textContent = '自由配置';
     document.getElementById('drawDate').textContent = '各点をドラッグして自由に並べ替え中';
   }
-  document.getElementById('mainNums').innerHTML = '';
-  document.getElementById('bonusNums').innerHTML = '';
+  if(!isHeatTrack()){
+    document.getElementById('mainNums').innerHTML = '';
+    document.getElementById('bonusNums').innerHTML = '';
+  }
   document.getElementById('mCentroid').textContent = `(${gcx.toFixed(0)}, ${gcy.toFixed(0)})`;
   document.getElementById('mNN').textContent = meanNN.toFixed(2) + ' cell';
   document.getElementById('mGap').textContent = maxGap.toFixed(1);
@@ -3665,6 +3680,8 @@ function endFreeDrag(){
       ballSaveFree();
     } else if(isOverlayTrack()){
       ovSaveActive();
+    } else if(isHeatTrack()){
+      heatPasteSaveCur();
     }
   }
 }
@@ -4376,6 +4393,8 @@ function heatStopTimer(){
 }
 function heatClear(){
   heatStopTimer();
+  freePath.setAttribute('stroke', 'url(#bodyGrad)');
+  const hb = document.getElementById('heatPasteBar'); if(hb) hb.style.display = 'none';
   while(heatLinesG.firstChild) heatLinesG.removeChild(heatLinesG.firstChild);
   while(heatDotsG.firstChild) heatDotsG.removeChild(heatDotsG.firstChild);
   svg.classList.remove('heat-mode');
@@ -4500,6 +4519,7 @@ function renderHeatFrame(upto){
   }
   heatSyncFixed();
   heatPanel(cnt, upto, maxN);
+  heatLineRender();
 }
 
 function heatPanel(cnt, upto, maxN){
@@ -4525,6 +4545,76 @@ function heatPanel(cnt, upto, maxN){
   document.getElementById('trailTitle').textContent = 'Centroid Drift';
   while(trailSvg.firstChild) trailSvg.removeChild(trailSvg.firstChild);
 }
+
+
+// ---- 重複コーナーに貼り付けたライン（動かせる・リセットできる）-------------------------------
+// ロトごとに1本。どの重複タブ（重複・重複10・重複20、全回／球別）でも同じラインが表示される。
+const HEAT_PASTE_KEY = 'ggHeatPaste_v1';
+const HEAT_PASTE_COLOR = '#FFE55C';
+function isHeatTrack(){ return typeof trackKey === 'string' && trackKey in HEAT_TRACKS; }
+function heatPasteAll(){ const s = ballLoad(HEAT_PASTE_KEY, {}); return s && typeof s === 'object' ? s : {}; }
+function heatPasteGet(game){
+  const e = heatPasteAll()[game], n = game === 'loto6' ? 6 : 7;
+  return (e && Array.isArray(e.orig) && e.orig.length === n && Array.isArray(e.cur) && e.cur.length === n) ? e : null;
+}
+function heatPasteSet(game, values, label){
+  const all = heatPasteAll(), v = ballSorted(values);
+  all[game] = { orig: v.slice(), cur: v.slice(), label: label || '' };
+  ballSave(HEAT_PASTE_KEY, all);
+}
+function heatPasteSaveCur(){
+  const g = heatState.game, all = heatPasteAll(); if(!all[g]) return;
+  all[g].cur = freeBasePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1])));
+  ballSave(HEAT_PASTE_KEY, all);
+  heatPasteBarUpdate();
+}
+function heatPasteBarUpdate(){
+  const bar = document.getElementById('heatPasteBar'), e = heatPasteGet(heatState.game);
+  if(!bar) return;
+  bar.style.display = e ? 'flex' : 'none';
+  if(!e) return;
+  const moved = e.cur.join() !== e.orig.join();
+  document.getElementById('heatPasteTxt').textContent = `貼り付けライン${e.label ? '（' + e.label + '）' : ''}：${ballSorted(e.cur).map(v=>String(v).padStart(2,'0')).join(' ')}${moved ? '（動かした形）' : ''}`;
+  document.getElementById('heatPasteReset').disabled = !moved;
+}
+function heatLineRender(){
+  if(!isHeatTrack() || !heatState.game) return;
+  while(freePointsG.firstChild) freePointsG.removeChild(freePointsG.firstChild);
+  freePath.setAttribute('d', ''); freeHandles = []; freeDraggingIndex = -1; freePointerActive = false;
+  const e = heatPasteGet(heatState.game);
+  heatPasteBarUpdate();
+  if(!e) return;
+  freeReadOnly = false; freeActiveManualIndex = -1;
+  freeBasePts = e.cur.map(gridXY); freeOriginalPts = null;
+  freePath.setAttribute('stroke', HEAT_PASTE_COLOR);
+  document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; });
+  freeBasePts.forEach((pt, i)=>{
+    const visible = el('circle',{r:7, fill:HEAT_PASTE_COLOR, opacity:0.95, filter:'url(#neonGlow)'});
+    const hit = el('circle',{r:26, fill:'#FFFFFF', opacity:0.001, style:'touch-action:pinch-zoom; cursor:grab;'});
+    hit.dataset.idx = i;
+    freePointsG.appendChild(visible); freePointsG.appendChild(hit);
+    freeHandles.push({visible, hit});
+    hit.addEventListener('pointerdown', (evt)=>{
+      if(!isHeatTrack()) return;
+      evt.preventDefault();
+      freePointerActive = true; freeDraggingIndex = i;
+      freeDragStart = clientToSvgPoint(evt); freeDragStartPt = [...freeBasePts[i]];
+      hit.setPointerCapture(evt.pointerId); hit.style.cursor = 'grabbing';
+    });
+  });
+  renderFreeFrame();
+}
+document.getElementById('heatPasteReset').addEventListener('click', ()=>{
+  const g = heatState.game, all = heatPasteAll(); if(!all[g]) return;
+  all[g].cur = all[g].orig.slice(); ballSave(HEAT_PASTE_KEY, all); heatLineRender();
+});
+document.getElementById('heatPasteClear').addEventListener('click', ()=>{
+  if(!confirm('貼り付けたラインを消します。よろしいですか？')) return;
+  const g = heatState.game, all = heatPasteAll(); delete all[g]; ballSave(HEAT_PASTE_KEY, all);
+  heatLineRender();
+  document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = 'none'; });
+  ['mCentroid','mNN','mGap','mOdd','mSum'].forEach(id=>{ document.getElementById(id).textContent = '—'; });
+});
 
 document.getElementById('heatN').addEventListener('input', (e)=>{
   if(heatState.fixed){ heatStopTimer(); renderHeatFrame(Number(e.target.value)); return; }
@@ -5774,6 +5864,85 @@ function aiParse(text, game){
 }
 
 
+
+// ---- ラインのコピー／貼り付け（各コーナーの予想ライン → 自由配置・重複）----------------------
+const CLIP_KEY = 'ggClip_v1';
+function lnGame(key){ return /6$/.test(key) ? 'loto6' : 'loto7'; }
+function lnCentroid(values){
+  const n = values.length; if(!n) return null;
+  let cx = 0, cy = 0; values.forEach(v=>{ cx += (v-1)%5; cy += Math.floor((v-1)/5); });
+  return { x:Number((cx/n).toFixed(2)), y:Number((cy/n).toFixed(2)) };
+}
+// いま画面に出ているラインを取り出す（なければ null）
+function lnSource(){
+  const k = trackKey; if(typeof k !== 'string') return null;
+  const pad = ballSorted;
+  try{
+    if(k in GEN_TRACKS){ const c = GEN_TRACKS[k], e = genSelected(c.game, c.corner); return e ? { game:c.game, values:pad(e.values), label:`AI生成 ${c.corner}` } : null; }
+    if(k in AI_TRACKS){ const g = AI_TRACKS[k], list = aiList(g), e = list[aiState.idx]; return e ? { game:g, values:pad(e.values), label:'AI予想' } : null; }
+    if(k in OV_TRACKS){ const st = ovSt(); return st && st.active ? { game:ovState.game, values:pad(ovValues(st.active).map(Math.round)), label:'重ね見 ' + ovName(st.active) } : null; }
+    if(k in BALL_TRACKS){
+      if(!ballState.rows.length) return null;
+      if(ballState.step === ballState.rows.length && freeBasePts) return { game:ballState.game, values:pad(freeBasePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1])))), label:`自由ライン（${scopeShort(ballState.ball)}）` };
+      const r = ballState.rows[Math.max(0, Math.min(ballState.rows.length-1, ballState.step))]; return r ? { game:ballState.game, values:pad(r[2]), label:`第${r[0]}回 当選ライン` } : null;
+    }
+    if(k in HEAT_TRACKS){ const e = heatPasteGet(heatState.game); return e ? { game:heatState.game, values:pad(e.cur), label:'重複の貼り付けライン' } : null; }
+    if((k.startsWith('free') || k.startsWith('avg')) && freeBasePts && freeBasePts.length){ return { game:lnGame(k), values:pad(freeBasePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1])))), label: k.startsWith('avg') ? 'アベレージ' : (FREE_PATTERN_KEYS.includes(k) ? `自由配置 パターン${ensureFreePatternState(k).active + 1}` : 'CO配置') }; }
+    if(k === 'allTrail' || k === 'loto6Trail'){ const i = Math.max(0, Math.min(draws.length-1, Math.round(currentIdx))); const d = draws[i]; return d ? { game:k === 'loto6Trail' ? 'loto6' : 'loto7', values:pad(d.main), label:`第${d.no}回 当選ライン` } : null; }
+  }catch(err){ console.warn('[GhostGrid] lnSource', err); }
+  return null;
+}
+function lnPasteTarget(){
+  const k = trackKey;
+  if(FREE_PATTERN_KEYS.includes(k)) return { kind:'free', game:lnGame(k) };
+  if(k in HEAT_TRACKS && heatState.game) return { kind:'heat', game:heatState.game };
+  return null;
+}
+function lnFmt(v){ return v.map(x=>String(x).padStart(2,'0')).join(' '); }
+function lnRefresh(note){
+  const box = document.getElementById('lineTools'); if(!box) return;
+  const src = lnSource(), tgt = lnPasteTarget(), clip = ballLoad(CLIP_KEY, null);
+  box.style.display = (src || tgt) ? 'flex' : 'none';
+  document.getElementById('lnCopy').style.display = src ? '' : 'none';
+  const pb = document.getElementById('lnPaste');
+  pb.style.display = tgt ? '' : 'none';
+  pb.disabled = !(clip && Array.isArray(clip.values));
+  let info = '';
+  if(note) info = note;
+  else {
+    if(src){ const c = lnCentroid(src.values); info += `表示中：${src.label} ${lnFmt(src.values)} ／ 重心(列${c.x}, 行${c.y})`; }
+    if(tgt){ info += (info ? ' ／ ' : '') + (clip && clip.values ? `コピー中：${clip.label} ${lnFmt(clip.values)}` : 'まだコピーしたラインがありません'); }
+  }
+  document.getElementById('lnInfo').textContent = info;
+}
+document.getElementById('lnCopy').addEventListener('click', ()=>{
+  const src = lnSource(); if(!src){ lnRefresh('コピーできるラインがありません'); return; }
+  const c = lnCentroid(src.values);
+  ballSave(CLIP_KEY, { game:src.game, values:src.values, label:src.label, centroid:c, at:Date.now() });
+  const txt = `${lnFmt(src.values)} | 重心(列${c.x}, 行${c.y}) | ${src.label}`;
+  try{ if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(()=>{}); }catch(e){}
+  lnRefresh(`コピーしました：${src.label} ${lnFmt(src.values)} ／ 重心(列${c.x}, 行${c.y})`);
+});
+document.getElementById('lnPaste').addEventListener('click', ()=>{
+  const tgt = lnPasteTarget(), clip = ballLoad(CLIP_KEY, null);
+  if(!tgt){ lnRefresh('ここには貼り付けできません（自由配置・重複で使えます）'); return; }
+  if(!clip || !Array.isArray(clip.values)){ lnRefresh('まだコピーしたラインがありません'); return; }
+  if(clip.game !== tgt.game){ lnRefresh(`${clip.game === 'loto6' ? 'ロト6' : 'ロト7'}のラインは、${tgt.game === 'loto6' ? 'ロト6' : 'ロト7'}には貼り付けできません`); return; }
+  if(tgt.kind === 'free'){
+    const st = ensureFreePatternState(trackKey), p = st.active;
+    st.touched[p] = true; st.values[p] = ballSorted(clip.values.slice());
+    saveFreePatternStore();
+    renderFreeView(trackKey);
+    lnRefresh(`自由配置 パターン${p+1}に貼り付けました：${lnFmt(clip.values)}（点をドラッグして動かせます。「元の並びに戻す」で戻せます）`);
+  } else {
+    heatPasteSet(tgt.game, clip.values, clip.label);
+    heatLineRender();
+    lnRefresh(`重複に貼り付けました：${lnFmt(clip.values)}（点をドラッグして動かせます。「貼り付けた位置に戻す」「ラインを消す」が使えます）`);
+  }
+});
+['click', 'pointerup', 'change', 'input'].forEach(t=>document.addEventListener(t, ()=>setTimeout(()=>lnRefresh(), 80), true));
+setInterval(()=>{ if(!document.hidden && !freePointerActive) lnRefresh(); }, 1500);
+
 // ---- AI生成コーナー（V4 / A / B）の表示 ----
 const GEN_TRACKS = {};
 ['Loto7', 'Loto6'].forEach(sfx=>{ ['V4', 'A', 'B'].forEach(c=>{ GEN_TRACKS['gen' + c + sfx] = { game: sfx === 'Loto6' ? 'loto6' : 'loto7', corner: c }; }); });
@@ -5791,7 +5960,7 @@ const genState = { game:null, corner:null };
 function isGenTrack(){ return typeof trackKey === 'string' && trackKey in GEN_TRACKS; }
 function genStore(){ const s = ballLoad(GEN_KEY, {}); return s && typeof s === 'object' ? s : {}; }
 function genNextNo(game){ return ballStats(game).latest + 1; }
-function genGameStore(game){ const s = genStore(); const g = s[game] || {}; g.items = Array.isArray(g.items) ? g.items : []; g.sel = g.sel || {}; return { all:s, g }; }
+function genGameStore(game){ const s = genStore(); const g = s[game] || {}; g.items = Array.isArray(g.items) ? g.items : []; g.sel = g.sel || {}; g.init = g.init || {}; return { all:s, g }; }
 function genList(game, corner){ const no = genNextNo(game); return genGameStore(game).g.items.filter(e=>e.corner === corner && e.targetNo === no).sort((a,b)=>a.k - b.k); }
 function genSelected(game, corner){ const list = genList(game, corner); if(!list.length) return null; const i = genGameStore(game).g.sel[corner + ':' + genNextNo(game)]; return list[Math.min(list.length-1, Math.max(0, Number.isInteger(i) ? i : 0))]; }
 function genSetSel(game, corner, i){ const { all, g } = genGameStore(game); g.sel[corner + ':' + genNextNo(game)] = i; all[game] = g; ballSave(GEN_KEY, all); }
@@ -5803,7 +5972,21 @@ function genAdd(game, corner){
   genSetSel(game, corner, list.length);
   return e;
 }
-function genEnsure(game, corner){ while(genList(game, corner).length < 2) genAdd(game, corner); }
+function genInitKey(game, corner){ return corner + ':' + genNextNo(game); }
+function genIsInit(game, corner){ const { g } = genGameStore(game); return !!g.init[genInitKey(game, corner)] || genList(game, corner).length >= 2; }
+function genEnsure(game, corner){
+  if(genIsInit(game, corner)) return;
+  while(genList(game, corner).length < 2) genAdd(game, corner);
+  const { all, g } = genGameStore(game); g.init[genInitKey(game, corner)] = true; all[game] = g; ballSave(GEN_KEY, all);
+}
+function genDelete(game, corner, id){
+  const { all, g } = genGameStore(game);
+  g.init[genInitKey(game, corner)] = true;
+  g.items = g.items.filter(e=>e.id !== id);
+  const n = genList(game, corner).length;
+  const key = corner + ':' + genNextNo(game); if(g.sel[key] >= n) g.sel[key] = Math.max(0, n-1);
+  all[game] = g; ballSave(GEN_KEY, all);
+}
 function genClear(){
   while(genG.firstChild) genG.removeChild(genG.firstChild);
   if(genState.game){ const r = document.getElementById('aiReport'); if(r) r.style.display = 'none'; document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; }); }
@@ -5814,7 +5997,7 @@ function renderGenView(game, corner){
   document.getElementById('genBanner').style.display = 'block';
   document.getElementById('genNote').textContent = GEN_NOTE[corner] + '重心の動きも抽選も乱数とほぼ同じ傾向で、当てやすくなるものではありません。観察用の記録です。';
   document.getElementById('genTitle').textContent = `${gameCfg(game).label} ・${GEN_LABEL[corner]} ・第${genNextNo(game)}回向け`;
-  if(genList(game, corner).length < 2){
+  if(!genIsInit(game, corner)){
     document.getElementById('genMsg').textContent = '生成中…';
     document.getElementById('genIdx').innerHTML = '';
     setTimeout(()=>{ if(isGenTrack() && genState.game === game && genState.corner === corner){ genEnsure(game, corner); document.getElementById('genMsg').textContent = ''; genRender(); } }, 30);
@@ -5826,6 +6009,20 @@ function genRender(){
   const game = genState.game, corner = genState.corner, cfg = gameCfg(game), list = genList(game, corner), e = genSelected(game, corner);
   while(genG.firstChild) genG.removeChild(genG.firstChild);
   ovExitActive(false);
+  if(!e){ document.getElementById('genIdx').innerHTML = ''; }
+  if(!e){
+    document.getElementById('genIdx').innerHTML = '';
+    document.getElementById('genDelBtn').style.display = 'none';
+    document.getElementById('drawId').textContent = `AI生成 ${corner} ・${cfg.label}`;
+    document.getElementById('drawDate').textContent = '予想がありません。「別の予想を生む」を押してください';
+    document.getElementById('mainNums').innerHTML = ''; document.getElementById('bonusNums').innerHTML = '';
+    document.getElementById('shapeMetricNote').textContent = 'AI生成では、指標は表示しません。';
+    document.getElementById('trailTitle').textContent = 'Centroid Drift';
+    while(trailSvg.firstChild) trailSvg.removeChild(trailSvg.firstChild);
+    document.getElementById('aiReport').style.display = 'none';
+    return;
+  }
+  document.getElementById('genDelBtn').style.display = '';
   const idx = list.findIndex(x=>x.id === e.id);
   document.getElementById('genIdx').innerHTML = list.map((x, i)=>`<button type="button" class="ov-btn ${corner === 'V4' ? 'orange' : (corner === 'A' ? 'pink' : 'indigo')}${i === idx ? ' sel act' : ''}" data-gi="${i}">${i+1}</button>`).join('');
   document.querySelectorAll('#genIdx .ov-btn').forEach(b=>b.addEventListener('click', ()=>{ genSetSel(game, corner, Number(b.dataset.gi)); genRender(); }));
@@ -5863,7 +6060,14 @@ function genRender(){
     const msg = document.getElementById('genMsg'); msg.textContent = '生成中…';
     setTimeout(()=>{ try{ genAdd(genState.game, genState.corner); msg.textContent = ''; genRender(); }catch(err){ msg.textContent = '生成できませんでした'; console.warn(err); } }, 30);
   });
-  document.getElementById('genRefChk').addEventListener('change', ()=>{ if(isGenTrack() && genList(genState.game, genState.corner).length) genRender(); });
+  document.getElementById('genRefChk').addEventListener('change', ()=>{ if(isGenTrack()) genRender(); });
+  document.getElementById('genDelBtn').addEventListener('click', ()=>{
+    if(!isGenTrack()) return;
+    const e = genSelected(genState.game, genState.corner); if(!e) return;
+    if(!confirm('この予想を削除します。よろしいですか？')) return;
+    genDelete(genState.game, genState.corner, e.id);
+    genRender();
+  });
 })();
 
 // ---- AI予想コーナーの表示 ----
@@ -6478,6 +6682,8 @@ const BACKUP_KEYS = [
   ['ggHeatCfg_v1',          '重複の設定'],
   ['ggAiPred_v1',          'AI予想の履歴'],
   ['ggGen_v1',             'AI生成の予想（V4・A・B）'],
+  ['ggHeatPaste_v1',       '重複に貼り付けたライン'],
+  ['ggClip_v1',            'コピーしたライン'],
   ['ggAiNote_v1',          'AI向けの書き出し設定'],
   ['ggDraftPredictions_v1', '記録した予想'],
   ['ggDraftCarryover_v1',   'キャリーオーバーの下書き'],
