@@ -5366,6 +5366,7 @@ function renderPredictionForm(){
   });
 }
 
+let draftListOpen = false;   // 記録一覧は初期状態で折りたたむ（開閉は覚えておく）
 function renderDraftList(){
   const listEl = document.getElementById('draftList');
   const drafts = loadDrafts();
@@ -5394,7 +5395,7 @@ function renderDraftList(){
   const undoBar = undoLabel
     ? `<div class="draft-undo-bar"><button type="button" class="draft-undo-btn" id="draftUndoBtn">↺ 元に戻す</button><span class="draft-undo-desc">${undoLabel}</span></div>`
     : '';
-  listEl.innerHTML = undoBar + items.map(d=>{
+  listEl.innerHTML = undoBar + `<details id="draftListDetails"${draftListOpen ? ' open' : ''}><summary class="draft-note" style="cursor:pointer;">これまでの記録（${items.length}件）を${draftListOpen ? '閉じる' : '開く'}</summary>` + items.map(d=>{
     const tag = kindLabel[d.kind];
     const nums = d.kind === 'prediction' ? d.predicted : d.main;
     const bonusTxt = d.kind !== 'prediction' && d.bonus && d.bonus.length ? ' / B:' + d.bonus.join(',') : '';
@@ -5402,7 +5403,9 @@ function renderDraftList(){
       <span>[${d.gameLabel}/${tag}] 第${d.no}回 — ${nums.join(',')}${bonusTxt}</span>
       <button class="draft-list-del" type="button" data-kind="${d.kind}" data-game="${d.game}" data-no="${d.no}">削除</button>
     </div>`;
-  }).join('');
+  }).join('') + '</details>';
+  const dd = document.getElementById('draftListDetails');
+  if(dd) dd.addEventListener('toggle', ()=>{ draftListOpen = dd.open; const sm = dd.querySelector('summary'); if(sm) sm.textContent = `これまでの記録（${items.length}件）を${dd.open ? '閉じる' : '開く'}`; });
   if(undoLabel){
     document.getElementById('draftUndoBtn').addEventListener('click', undoLastDraftChange);
   }
