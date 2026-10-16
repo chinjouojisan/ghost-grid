@@ -23,13 +23,36 @@ jobs:
           python-version: '3.12'
       - name: Fetch latest draws and update data.json
         run: python scripts/update_data.py
-      - name: Commit if changed
+      - name: Commit data.json if changed
         run: |
           if [ -n "$(git status --porcelain data.json)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add data.json
             git commit -m "data: 抽選結果を自動更新"
+            git push
+          else
+            echo "no changes"
+          fi
+      # 結果の更新のあと、次の回向けのAI生成（V4・A・B）をまとめて作る。
+      # 失敗してもデータ更新は成功のまま（continue-on-error）。
+      - name: Install browser for AI generation
+        continue-on-error: true
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Generate AI predictions (ai-generated.json)
+        continue-on-error: true
+        run: python scripts/gen_predictions.py
+      - name: Commit ai-generated.json if changed
+        continue-on-error: true
+        run: |
+          if [ -n "$(git status --porcelain ai-generated.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add ai-generated.json
+            git commit -m "ai: AI生成の予想を自動作成"
+            git pull --rebase
             git push
           else
             echo "no changes"
