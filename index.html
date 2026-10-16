@@ -6187,7 +6187,7 @@ const BEAUTY_FEATS = [
 function beautyLoad(){
   const b = ballLoad(BEAUTY_KEY, null) || {};
   const w = Array.isArray(b.w) && b.w.length === BEAUTY_FEATS.length ? b.w : new Array(BEAUTY_FEATS.length).fill(0);
-  return { w, n: b.n || 0, favs: Array.isArray(b.favs) ? b.favs : [] };
+  return { w, n: b.n || 0, pre: b.pre || 0, favs: Array.isArray(b.favs) ? b.favs : [] };
 }
 function beautySave(b){ ballSave(BEAUTY_KEY, b); }
 function lineFeatures(game, values){
@@ -6215,9 +6215,21 @@ function lineFeatures(game, values){
   return [tension, flow, offset, counter, contrast, presence, span];
 }
 function beautyScore(game, values, b){ b = b || beautyLoad(); const f = lineFeatures(game, values); return f.reduce((a, x, i)=>a + x * b.w[i], 0); }
-function beautyLearn(b, winF, loseF){
+function beautyLearn(b, winF, loseF, lr, pre){
   const d = winF.map((x, i)=>x - loseF[i]), z = d.reduce((a, x, i)=>a + x * b.w[i], 0), g = 1 / (1 + Math.exp(z));
-  b.w = b.w.map((wi, i)=>Math.max(-5, Math.min(5, wi + 1.2 * g * d[i]))); b.n++;
+  b.w = b.w.map((wi, i)=>Math.max(-5, Math.min(5, wi + (lr || 1.2) * g * d[i]))); if(!pre) b.n++;
+}
+// 過去の当選ラインを「見本」、いまのアプリの予想ラインを「比較対象」として、初期の重みを作る
+async function beautyPretrain(onProgress){
+  const b = beautyLoad(); let used = 0;
+  for(const game of ['loto7', 'loto6']){
+    const negs = [];
+    for(let i=0; i<20; i++){ negs.push(lineFeatures(game, beautyRandomLine(game))); if(onProgress) onProgress(`${game === 'loto6' ? 'ロト6' : 'ロト7'}：比較用の予想ラインを作成中 ${i+1}/20`); await new Promise(r=>setTimeout(r, 0)); }
+    const pos = ballAll(game).slice(-200).map(r=>lineFeatures(game, r[2]));
+    for(let ep=0; ep<4; ep++) pos.forEach((pf, i)=>{ beautyLearn(b, pf, negs[(i*7 + ep) % negs.length], 0.06, true); });
+    used += pos.length;
+  }
+  b.pre = (b.pre || 0) + used; beautySave(b); return used;
 }
 function beautyRandomLine(game){
   const corners = ['V4', 'A', 'B'], c = corners[Math.floor(Math.random()*3)], k = 100 + Math.floor(Math.random()*9000);
@@ -6262,17 +6274,23 @@ function bpRender(){
       <div style="flex:1;text-align:center;">${bpMini(bp.game, B, '#FFA64D')}<div style="margin-top:4px;font-size:11px;">${B.map(v=>String(v).padStart(2,'0')).join(' ')}</div><button type="button" class="draft-save-btn" data-bp="1" style="margin-top:6px;">右が美しい</button></div>
     </div>
     <div style="text-align:center;margin-top:8px;"><button type="button" class="ov-btn" data-bp="skip">どちらでもない（次へ）</button></div>
-    <div style="margin-top:12px;font-weight:700;color:#8FE0EE;">いま重視している特徴（学習 ${b.n} 回・お気に入り ${b.favs.length} 本）</div>
-    ${b.n < 5 ? '<div class="ai-msg">まだ学習が少ないため、予想の生成には反映されません（5回以上で反映）。</div>' : '<div class="ai-msg">AI生成の「別の予想を生む」で、候補12本から、この好みに近い線を選びます。</div>'}
+    <div style="margin-top:12px;font-weight:700;color:#8FE0EE;">いま重視している特徴（学習 ${b.n} 回・お気に入り ${b.favs.length} 本${b.pre ? '・初期学習済み' : ''}）</div>
+    ${(b.n < 5 && !b.pre) ? '<div class="ai-msg">まだ学習が少ないため、予想の生成には反映されません（5回以上、または初期学習で反映）。</div>' : '<div class="ai-msg">AI生成の「別の予想を生む」で、候補12本から、この好みに近い線を選びます。</div>'}
     <div style="margin-top:6px;">${bars}</div>
-    <div style="margin-top:8px;"><button type="button" class="ov-btn" id="bpReset">学習をリセット</button></div>`;
+    <div style="margin-top:8px;"><button type="button" class="ov-btn" id="bpPre">過去の当選ラインから初期学習</button> <button type="button" class="ov-btn" id="bpReset">学習をリセット</button> <span class="ai-msg" id="bpPreMsg"></span></div>
+    <div class="ai-msg" style="margin-top:4px;">初期学習は、直近200回の当選ラインを「見本」、いまの予想ラインを「比べる相手」として、重みの出発点を作ります（ロト7・ロト6の両方）。あとから選ぶ学習が上書きしていきます。</div>`;
   panel.querySelectorAll('[data-bg]').forEach(x=>x.addEventListener('click', ()=>{ bp.game = x.dataset.bg; bp.pair = null; bpRender(); }));
   panel.querySelectorAll('[data-bp]').forEach(x=>x.addEventListener('click', ()=>{
     const v = x.dataset.bp;
     if(v !== 'skip'){ const wi = Number(v), W = bp.pair[wi], L = bp.pair[1 - wi], bb = beautyLoad(); beautyLearn(bb, lineFeatures(bp.game, W), lineFeatures(bp.game, L)); beautySave(bb); }
     bp.pair = null; bpRender();
   }));
-  document.getElementById('bpReset').addEventListener('click', ()=>{ if(confirm('美しさの学習をリセットします。よろしいですか？')){ beautySave({ w:new Array(BEAUTY_FEATS.length).fill(0), n:0, favs:[] }); bpRender(); } });
+  document.getElementById('bpPre').addEventListener('click', async ()=>{
+    const m = document.getElementById('bpPreMsg'); document.getElementById('bpPre').disabled = true;
+    try{ const n = await beautyPretrain(t=>{ m.textContent = t; }); bpRender(); document.getElementById('bpPreMsg').textContent = `初期学習が終わりました（当選ライン${n}本）`; }
+    catch(err){ m.textContent = '初期学習に失敗しました'; console.warn(err); document.getElementById('bpPre').disabled = false; }
+  });
+  document.getElementById('bpReset').addEventListener('click', ()=>{ if(confirm('美しさの学習をリセットします。よろしいですか？')){ beautySave({ w:new Array(BEAUTY_FEATS.length).fill(0), n:0, pre:0, favs:[] }); bpRender(); } });
 }
 document.getElementById('beautyToggleBtn').addEventListener('click', ()=>{
   ['draftPanel','exportPanel','backupPanel','viewPanel'].forEach(id=>{ document.getElementById(id).style.display = 'none'; });
@@ -6314,7 +6332,7 @@ function genAdd(game, corner){
   let k = (list.length || ks.length) ? Math.max(0, ...list.map(x=>x.k), ...ks) + 1 : 1, e = window.GG_AI.generate(game, corner, k);
   for(let t=0; t<6 && list.some(x=>x.values.join() === e.values.join()); t++){ k++; e = window.GG_AI.generate(game, corner, k); }
   const bt = beautyLoad();
-  if(bt.n >= 5){
+  if(bt.n >= 5 || bt.pre > 0){
     // 美しさの学習を反映：候補12本から、好みの特徴に最も近い線を選ぶ
     let best = e, bs = beautyScore(game, e.values, bt);
     for(let j=1; j<12; j++){
