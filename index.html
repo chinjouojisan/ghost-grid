@@ -920,6 +920,14 @@
         <div class="ov-group"><span class="ov-glabel yellow">CO<br><small>CO配置</small></span><div id="ovBtnsCo" class="ov-btns"></div></div>
         <div class="ov-group"><span class="ov-glabel violet">AI<br><small>AI予想</small></span><div id="ovBtnsAi" class="ov-btns"></div></div>
         <div class="ov-group"><span class="ov-glabel orange">AI生成<br><small>V4・A・B</small></span><div id="ovBtnsGen" class="ov-btns"></div></div>
+        <div class="ov-group"><span class="ov-glabel" style="color:#8FE0EE;">重複<br><small>下に敷く</small></span><div id="ovHeatBtns" class="ov-btns"></div></div>
+        <div class="ov-group"><span class="ov-glabel" style="color:#8FE0EE;">範囲<br><small>全回／球</small></span><div id="ovHeatScope" class="ov-btns"></div></div>
+        <div class="ov-group"><span class="ov-glabel" style="color:#C9A7FF;">操作<br><small>動かす線</small></span><div class="ov-btns">
+          <button type="button" class="ov-btn" id="ovPrevPred">◀ 前の予想</button>
+          <button type="button" class="ov-btn" id="ovNextPred">次の予想 ▶</button>
+          <button type="button" class="ov-btn" id="ovSaveFree">自由配置に保存</button>
+        </div></div>
+        <div class="ai-msg" id="ovOpMsg"></div>
         <div id="ovLegend" class="ov-legend"></div>
         <div class="ball-note" id="ovNote">ボタンを押すと、そのコーナーの最新の当選ライン（薄い線）と、予想ライン（明るい線）が重なって出ます。予想がまだないときは、最新の当選ラインの上に重なります。選んだ線のうち、右の「動かす」を選んだ1本の点をドラッグできます。ここで動かした形は重ね見専用に保存され、元のコーナーには影響しません。最大5本まで。当選数字の予測ではありません。</div>
       </div>
@@ -959,6 +967,7 @@
       <div id="lineTools" class="line-tools" style="display:none;">
         <button id="lnCopy" class="draft-save-btn" type="button">ラインをコピー</button>
         <button id="lnPaste" class="draft-save-btn" type="button">貼り付け</button>
+        <button id="scopeSwap" class="draft-save-btn" type="button" style="display:none;">全回⇄球別</button>
         <span id="lnInfo" class="ai-msg"></span>
       </div>
       <div id="aiReport" class="ai-report" style="display:none;"></div>
@@ -3154,7 +3163,7 @@ function renderFreeFrame(){
     document.getElementById('drawId').textContent = '自由配置';
     document.getElementById('drawDate').textContent = '各点をドラッグして自由に並べ替え中';
   }
-  if(!isHeatTrack()){
+  if(!isHeatTrack() && !isOverlayTrack()){
     document.getElementById('mainNums').innerHTML = '';
     document.getElementById('bonusNums').innerHTML = '';
   }
@@ -4650,8 +4659,42 @@ const OV_STORE_KEY = 'ggOverlay_v1';
 const OV_MAX = 5;
 const OV_COLORS = { all:'#6FF5FF', ball:'#7CFF8A', co:'#FFE55C', ai:'#C9A7FF', gV4:'#FFA64D', gA:'#FF6FC9', gB:'#9BB0FF' };
 function ovIsGen(key){ return key === 'gV4' || key === 'gA' || key === 'gB'; }
+const ovHeatG = el('g',{['pointer-events']:'none'});
+svg.insertBefore(ovHeatG, bodyPath);
 const ovG = el('g',{filter:'url(#neonGlow)', ['pointer-events']:'none'});
 svg.insertBefore(ovG, bodyPath);
+// 重ね見の下に敷く重複（0=なし／10／20）と範囲（'ALL' か セット球の記号）をロトごとに記憶
+const OV_HEAT_KEY = 'ggOverlayHeat_v1';
+const ovAiIdx = {};   // 重ね見で選んでいるAI予想の番号（なければ最新）
+function ovHeatCfg(game){
+  const all = ballLoad(OV_HEAT_KEY, {}), c = all[game] || {};
+  return { n: [0,10,20].includes(c.n) ? c.n : 20, scope: c.scope || SCOPE_ALL, lastBall: c.lastBall || null };
+}
+function ovHeatSet(game, patch){
+  const all = ballLoad(OV_HEAT_KEY, {}); all[game] = Object.assign(ovHeatCfg(game), patch); ballSave(OV_HEAT_KEY, all);
+}
+function ovHeatRender(){
+  while(ovHeatG.firstChild) ovHeatG.removeChild(ovHeatG.firstChild);
+  const g = ovState.game; if(!g) return;
+  const cfg = ovHeatCfg(g); if(!cfg.n) return;
+  const maxN = g === 'loto6' ? 43 : 37, rows = scopeRows(g, cfg.scope).slice(-cfg.n);
+  const cnt = new Array(maxN+1).fill(0);
+  rows.forEach(r=> r[2].forEach(x=>{ cnt[x]++; }));
+  for(let n=1;n<=maxN;n++){
+    const [x,y] = gridXY(n), c = cnt[n];
+    if(c === 0){
+      ovHeatG.appendChild(el('circle',{cx:x, cy:y, r:10, fill:'none', stroke:'#6b7a99', ['stroke-width']:1, ['stroke-dasharray']:'2,3', opacity:0.5}));
+      continue;
+    }
+    const st = heatStyle(c), r = 7 + 3.5*(c-1);
+    ovHeatG.appendChild(el('circle',{cx:x, cy:y, r:r*1.7, fill:st.fill, opacity:0.08 + 0.025*c}));
+    ovHeatG.appendChild(el('circle',{cx:x, cy:y, r:r, fill:st.fill, opacity:c === 1 ? 0.4 : 0.6}));
+    if(c >= 2){
+      const t = el('text',{x:x, y:y+4, ['text-anchor']:'middle', ['font-family']:'Space Mono, monospace', ['font-size']:c >= 3 ? 12 : 10, ['font-weight']:700, fill:st.text, opacity:0.9});
+      t.textContent = '×' + c; ovHeatG.appendChild(t);
+    }
+  }
+}
 const ovState = { game:null, byGame:{ loto7:{sel:[], active:null}, loto6:{sel:[], active:null} } };
 
 function isOverlayTrack(){ return typeof trackKey === 'string' && trackKey in OV_TRACKS; }
@@ -4687,7 +4730,7 @@ function ovSource(key){
     return (e && Array.isArray(e.values) && e.values.length === n) ? e.values.slice() : null;
   }
   if(ovIsGen(k)){ const e = genSelected(g, k.slice(1)); return (e && e.values.length === n) ? e.values.slice() : null; }
-  if(k === 'ai'){ const e = aiLatest(g); return (e && e.values.length === n) ? e.values.slice() : null; }
+  if(k === 'ai'){ const l = aiList(g), e = (ovAiIdx[g] != null && l[ovAiIdx[g]]) ? l[ovAiIdx[g]] : aiLatest(g); return (e && e.values.length === n) ? e.values.slice() : null; }
   const fs = freeStateStore[ovCoKey(g)];
   if(fs && fs.basePts && fs.basePts.length === n) return fs.basePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1])));
   return null;
@@ -4702,6 +4745,7 @@ function ovHasPrediction(key){ return !!(ovOwn(key) || ovSource(key)); }
 
 function ovClear(){
   while(ovG.firstChild) ovG.removeChild(ovG.firstChild);
+  while(ovHeatG.firstChild) ovHeatG.removeChild(ovHeatG.firstChild);
   freePath.setAttribute('stroke', 'url(#bodyGrad)');
   if(ovState.game){ ovExitActive(true); }
   document.querySelectorAll('.gauge-marker').forEach(m=>{ m.style.display = ''; });
@@ -4734,6 +4778,7 @@ function ovRender(){
   const st = ovSt(), g = ovState.game;
   freeReadOnly = false; freeActiveManualIndex = -1;
   while(ovG.firstChild) ovG.removeChild(ovG.firstChild);
+  ovHeatRender();
   st.sel.forEach(key=>{
     const col = ovColor(key);
     const ref = ovRef(key);
@@ -4750,6 +4795,7 @@ function ovRender(){
   });
   if(st.active) ovEnterActive(); else { ovExitActive(false); ovPanelNone(); }
   ovRenderButtons();
+  ovRenderHeatButtons();
   ovRenderLegend();
 }
 
@@ -4815,6 +4861,59 @@ function ovSaveActive(){
   ovRenderLegend();
 }
 
+
+function ovRenderHeatButtons(){
+  const g = ovState.game, cfg = ovHeatCfg(g);
+  const mk = (attr, val, label, on, disabled)=>`<button type="button" class="ov-btn${on ? ' sel act' : ''}" ${attr}="${val}"${disabled ? ' disabled' : ''}>${label}</button>`;
+  document.getElementById('ovHeatBtns').innerHTML = mk('data-ovh', '0', 'なし', cfg.n === 0) + mk('data-ovh', '10', '重複10', cfg.n === 10) + mk('data-ovh', '20', '重複20', cfg.n === 20);
+  const balls = BALL_LETTERS.filter(b=>ballAll(g).some(r=>r[1] === b));
+  document.getElementById('ovHeatScope').innerHTML = mk('data-ovs', SCOPE_ALL, '全回', cfg.scope === SCOPE_ALL) + balls.map(b=>mk('data-ovs', b, b, cfg.scope === b)).join('') + `<button type="button" class="ov-btn" id="ovScopeSwap">全回⇄球別</button>`;
+  document.querySelectorAll('#ovHeatBtns [data-ovh]').forEach(b=>b.addEventListener('click', ()=>{ ovHeatSet(g, { n:Number(b.dataset.ovh) }); ovRender(); }));
+  document.querySelectorAll('#ovHeatScope [data-ovs]').forEach(b=>b.addEventListener('click', ()=>{ const v = b.dataset.ovs; ovHeatSet(g, v === SCOPE_ALL ? { scope:v } : { scope:v, lastBall:v }); ovRender(); }));
+  document.getElementById('ovScopeSwap').addEventListener('click', ()=>{
+    const c = ovHeatCfg(g), all = ballAll(g), latestBall = all.length ? all[all.length-1][1] : 'A';
+    if(c.scope === SCOPE_ALL) ovHeatSet(g, { scope: c.lastBall || latestBall, lastBall: c.lastBall || latestBall });
+    else ovHeatSet(g, { scope: SCOPE_ALL, lastBall: c.scope });
+    ovRender();
+  });
+}
+function ovOpMsg(t){ document.getElementById('ovOpMsg').textContent = t || ''; }
+// 動かす線が AI生成／AI予想なら、予想を1つ前後に送る（重複は敷いたまま）
+function ovStepPred(dir){
+  const st = ovSt(), g = ovState.game, key = st.active;
+  if(!key){ ovOpMsg('動かす線を選んでください'); return; }
+  const k = ovKind(key);
+  if(ovIsGen(k)){
+    const corner = k.slice(1); genEnsure(g, corner);
+    const list = genList(g, corner), cur = genSelected(g, corner), i = list.findIndex(x=>x.id === cur.id);
+    if(list.length < 2){ ovOpMsg('このコーナーの予想は1つだけです'); return; }
+    const ni = (i + dir + list.length) % list.length;
+    genSetSel(g, corner, ni);
+    const store = ovLoadStore(); if(store[g]) { delete store[g][key]; ballSave(OV_STORE_KEY, store); }
+    ovRender(); ovOpMsg(`AI生成 ${corner}：${ni+1} / ${list.length} 番目（動かした形は破棄しました）`);
+  } else if(k === 'ai'){
+    const list = aiList(g);
+    if(list.length < 2){ ovOpMsg('AI予想は1つだけです'); return; }
+    const cur = ovAiIdx[g] != null ? ovAiIdx[g] : list.length-1;
+    ovAiIdx[g] = (cur + dir + list.length) % list.length;
+    const store = ovLoadStore(); if(store[g]){ delete store[g][key]; ballSave(OV_STORE_KEY, store); }
+    ovOpMsg(`AI予想：${ovAiIdx[g]+1} / ${list.length} 番目（動かした形は破棄しました）`);
+    ovRender();
+  } else ovOpMsg('前後の送りは、AI生成・AI予想で使えます');
+}
+document.getElementById('ovPrevPred').addEventListener('click', ()=>ovStepPred(-1));
+document.getElementById('ovNextPred').addEventListener('click', ()=>ovStepPred(1));
+// 動かす線を、自由配置の空きパターンへ保存
+document.getElementById('ovSaveFree').addEventListener('click', ()=>{
+  const st = ovSt(), g = ovState.game; if(!st.active){ ovOpMsg('動かす線を選んでください'); return; }
+  const vals = ballSorted(freeBasePts.map(pt=>Math.round(inverseGridValue(pt[0], pt[1]))));
+  const fk = ovFreeKey(g), fs = ensureFreePatternState(fk);
+  let idx = fs.touched.findIndex(t=>!t);
+  if(idx < 0){ idx = fs.active; if(!confirm(`自由配置10枠がすべて使用中です。パターン${idx+1}を上書きします。よろしいですか？`)) return; }
+  fs.touched[idx] = true; fs.values[idx] = vals; saveFreePatternStore();
+  ovOpMsg(`自由配置 パターン${idx+1}に保存しました：${vals.map(v=>String(v).padStart(2,'0')).join(' ')}`);
+});
+
 function ovToggle(key){
   const st = ovSt();
   const i = st.sel.indexOf(key);
@@ -4843,7 +4942,7 @@ function ovRenderButtons(){
   document.getElementById('ovBtnsCo').innerHTML = mk('co', 'CO配置', 'yellow');
   document.getElementById('ovBtnsAi').innerHTML = mk('ai', 'AI予想', 'violet', !aiLatest(g));
   document.getElementById('ovBtnsGen').innerHTML = mk('gV4', 'V4', 'orange') + mk('gA', 'A', 'pink') + mk('gB', 'B', 'indigo');
-  document.querySelectorAll('#overlayBanner .ov-btn').forEach(btn=>{
+  document.querySelectorAll('#overlayBanner .ov-btn[data-ov]').forEach(btn=>{
     btn.addEventListener('click', ()=> ovToggle(btn.dataset.ov));
   });
   document.getElementById('ovCount').textContent = `表示中 ${st.sel.length} / ${OV_MAX} 本`;
@@ -5902,7 +6001,10 @@ function lnFmt(v){ return v.map(x=>String(x).padStart(2,'0')).join(' '); }
 function lnRefresh(note){
   const box = document.getElementById('lineTools'); if(!box) return;
   const src = lnSource(), tgt = lnPasteTarget(), clip = ballLoad(CLIP_KEY, null);
-  box.style.display = (src || tgt) ? 'flex' : 'none';
+  const sib = scopeSibling(trackKey), ss = document.getElementById('scopeSwap');
+  ss.style.display = sib ? '' : 'none';
+  if(sib){ const isAll = !!(BALL_TRACKS[trackKey] || HEAT_TRACKS[trackKey]).all; ss.textContent = isAll ? '球別に切り替え（いま：全回）' : '全回に切り替え（いま：球別）'; }
+  box.style.display = (src || tgt || sib) ? 'flex' : 'none';
   document.getElementById('lnCopy').style.display = src ? '' : 'none';
   const pb = document.getElementById('lnPaste');
   pb.style.display = tgt ? '' : 'none';
@@ -5922,6 +6024,15 @@ document.getElementById('lnCopy').addEventListener('click', ()=>{
   const txt = `${lnFmt(src.values)} | 重心(列${c.x}, 行${c.y}) | ${src.label}`;
   try{ if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).catch(()=>{}); }catch(e){}
   lnRefresh(`コピーしました：${src.label} ${lnFmt(src.values)} ／ 重心(列${c.x}, 行${c.y})`);
+});
+function scopeSibling(key){
+  const T = key in BALL_TRACKS ? BALL_TRACKS : (key in HEAT_TRACKS ? HEAT_TRACKS : null); if(!T) return null;
+  const c = T[key];
+  return Object.keys(T).find(k=>{ const d = T[k]; return d.game === c.game && (d.keep||0) === (c.keep||0) && (d.fixed||0) === (c.fixed||0) && !!d.all === !c.all; }) || null;
+}
+document.getElementById('scopeSwap').addEventListener('click', ()=>{
+  const sib = scopeSibling(trackKey); if(!sib) return;
+  const b = document.querySelector(`[data-track="${sib}"]`); if(b) b.click(); else setTrack(sib);
 });
 document.getElementById('lnPaste').addEventListener('click', ()=>{
   const tgt = lnPasteTarget(), clip = ballLoad(CLIP_KEY, null);
@@ -6683,6 +6794,7 @@ const BACKUP_KEYS = [
   ['ggAiPred_v1',          'AI予想の履歴'],
   ['ggGen_v1',             'AI生成の予想（V4・A・B）'],
   ['ggHeatPaste_v1',       '重複に貼り付けたライン'],
+  ['ggOverlayHeat_v1',     '重ね見の重複設定'],
   ['ggClip_v1',            'コピーしたライン'],
   ['ggAiNote_v1',          'AI向けの書き出し設定'],
   ['ggDraftPredictions_v1', '記録した予想'],
