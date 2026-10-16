@@ -1092,6 +1092,15 @@ if(GG_AI_MODE){
       window.GG_AI_REPO = { loto7: Array.isArray(pr.loto7) ? pr.loto7 : [], loto6: Array.isArray(pr.loto6) ? pr.loto6 : [] };
     }
   }catch(err){ /* ファイルが無い／読めない場合は共有の予想なし */ }
+  // ai-generated.json：データ更新のあと、自動で作ったAI生成の予想（V4・A・B）。無ければ空
+  window.GG_GEN_REPO = {loto7:[], loto6:[]};
+  try{
+    const r3 = await fetch('./ai-generated.json', {cache:'no-store'});
+    if(r3.ok){
+      const j3 = await r3.json();
+      window.GG_GEN_REPO = { loto7: Array.isArray(j3.loto7) ? j3.loto7 : [], loto6: Array.isArray(j3.loto6) ? j3.loto6 : [] };
+    }
+  }catch(err){ /* ファイルが無い／読めない場合は、この端末で生成するだけ */ }
   initApp(GG_DATA);
 })();
 
@@ -6170,13 +6179,20 @@ const genState = { game:null, corner:null };
 function isGenTrack(){ return typeof trackKey === 'string' && trackKey in GEN_TRACKS; }
 function genStore(){ const s = ballLoad(GEN_KEY, {}); return s && typeof s === 'object' ? s : {}; }
 function genNextNo(game){ return ballStats(game).latest + 1; }
-function genGameStore(game){ const s = genStore(); const g = s[game] || {}; g.items = Array.isArray(g.items) ? g.items : []; g.sel = g.sel || {}; g.init = g.init || {}; return { all:s, g }; }
-function genList(game, corner){ const no = genNextNo(game); return genGameStore(game).g.items.filter(e=>e.corner === corner && e.targetNo === no).sort((a,b)=>a.k - b.k); }
+function genGameStore(game){ const s = genStore(); const g = s[game] || {}; g.items = Array.isArray(g.items) ? g.items : []; g.sel = g.sel || {}; g.init = g.init || {}; g.hidden = g.hidden || {}; return { all:s, g }; }
+// この端末で作った予想＋自動生成の共有ファイル（ai-generated.json）。同じ id は共有側を優先する。
+function genAllFor(game){
+  const g = genGameStore(game).g, shared = ((window.GG_GEN_REPO || {})[game] || []).filter(e=>e && e.id && Array.isArray(e.values)).map(e=>Object.assign({}, e, {shared:true, gen:true}));
+  const ids = new Set(shared.map(e=>e.id));
+  return shared.concat(g.items.filter(e=>!ids.has(e.id))).filter(e=>!g.hidden[e.id]);
+}
+function genList(game, corner){ const no = genNextNo(game); return genAllFor(game).filter(e=>e.corner === corner && e.targetNo === no).sort((a,b)=>a.k - b.k); }
 function genSelected(game, corner){ const list = genList(game, corner); if(!list.length) return null; const i = genGameStore(game).g.sel[corner + ':' + genNextNo(game)]; return list[Math.min(list.length-1, Math.max(0, Number.isInteger(i) ? i : 0))]; }
 function genSetSel(game, corner, i){ const { all, g } = genGameStore(game); g.sel[corner + ':' + genNextNo(game)] = i; all[game] = g; ballSave(GEN_KEY, all); }
 function genAdd(game, corner){
   const { all, g } = genGameStore(game), list = genList(game, corner);
-  let k = list.length ? Math.max(...list.map(e=>e.k)) + 1 : 1, e = window.GG_AI.generate(game, corner, k);
+  const no = genNextNo(game), ks = ((window.GG_GEN_REPO || {})[game] || []).concat(g.items).filter(x=>x && x.corner === corner && x.targetNo === no).map(x=>x.k).concat(Object.keys(g.hidden).filter(id=>id.indexOf(`gen-${game}-${corner}-${no}-`) === 0).map(id=>Number(id.split('-').pop())));
+  let k = (list.length || ks.length) ? Math.max(0, ...list.map(x=>x.k), ...ks) + 1 : 1, e = window.GG_AI.generate(game, corner, k);
   for(let t=0; t<6 && list.some(x=>x.values.join() === e.values.join()); t++){ k++; e = window.GG_AI.generate(game, corner, k); }
   g.items.push(e); all[game] = g; ballSave(GEN_KEY, all);
   genSetSel(game, corner, list.length);
@@ -6193,6 +6209,7 @@ function genDelete(game, corner, id){
   const { all, g } = genGameStore(game);
   g.init[genInitKey(game, corner)] = true;
   g.items = g.items.filter(e=>e.id !== id);
+  g.hidden[id] = true;     // 共有ファイルの予想は、この端末で非表示にする
   const n = genList(game, corner).length;
   const key = corner + ':' + genNextNo(game); if(g.sel[key] >= n) g.sel[key] = Math.max(0, n-1);
   all[game] = g; ballSave(GEN_KEY, all);
@@ -6394,7 +6411,7 @@ function aiReportHtml(e, game, res){
     + sec(`予想の方法${e.method.version ? '（' + aiEsc(e.method.version) + '）' : ''}`, steps + (e.method.changes ? `<div class="ai-text">改善点：${aiEsc(e.method.changes)}</div>` : ''))
     + sec('あなたの傾向との対比', txt(e.userInsight))
     + `<div class="ai-btns"><button id="aiRepCopy" class="draft-save-btn" type="button">レポートをコピー</button><button id="aiRepFile" class="draft-save-btn" type="button">ファイルに保存</button>${(e.shared || e.gen) ? '' : '<button id="aiRepDel" class="draft-save-btn" type="button" style="background:transparent;color:#ff8a8a;border:1px solid #ff8a8a;">この予想を削除</button>'}<span id="aiRepMsg" class="ai-msg"></span></div>`
-    + `<div class="ai-msg" style="margin-top:8px;">${e.shared ? '共有ファイル（ai-predictions.json）の予想です。消すときはリポジトリのファイルから消してください。<br>' : (e.gen ? `アプリ内で生成した予想です（乱数の種 ${aiEsc(String(e.seed))}）。同じ種なら同じ予想になります。<br>` : '')}観察用の記録で、当選を保証するものではありません。</div>`;
+    + `<div class="ai-msg" style="margin-top:8px;">${e.shared && e.gen ? '結果の更新のあと、自動で作られた予想（共有ファイル ai-generated.json）です。同じ種なら同じ予想になります。<br>' : (e.shared ? '共有ファイル（ai-predictions.json）の予想です。消すときはリポジトリのファイルから消してください。<br>' : (e.gen ? `アプリ内で生成した予想です（乱数の種 ${aiEsc(String(e.seed))}）。同じ種なら同じ予想になります。<br>` : ''))}観察用の記録で、当選を保証するものではありません。</div>`;
 }
 function aiReportText(e, game, res){
   const cfg = gameCfg(game), d = new Date(e.createdAt), L = [];
