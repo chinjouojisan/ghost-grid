@@ -6182,11 +6182,18 @@ const BEAUTY_FEATS = [
   ['counter', '釣り合い', '偏りの反対側にも点がある'],
   ['contrast','疎密', '固まった所と空いた所の対比'],
   ['presence','存在感', '線が長く、画面を大きく使う'],
-  ['span',    '広がり', '線が囲む範囲の大きさ']
+  ['span',    '広がり', '線が囲む範囲の大きさ'],
+  ['p_overlap','重なり', '前の当選ラインと重なる数'],
+  ['p_cross', '交差', '前の線と交わる回数'],
+  ['p_shift', 'ずれ幅', '前の線から大きく動く'],
+  ['p_coh',   'そろい', '数字が同じ向きにそろって動く'],
+  ['p_near',  '隣に出る', '前の点のすぐ隣に出る数'],
+  ['p_cen',   '重心移動', '重心が前から大きく動く']
 ];
+const BEAUTY_SINGLE = 7;   // 先頭7つが単一ライン、残りが「前の当選ラインとの関係」
 function beautyLoad(){
   const b = ballLoad(BEAUTY_KEY, null) || {};
-  const w = Array.isArray(b.w) && b.w.length === BEAUTY_FEATS.length ? b.w : new Array(BEAUTY_FEATS.length).fill(0);
+  const w = new Array(BEAUTY_FEATS.length).fill(0); if(Array.isArray(b.w)) b.w.slice(0, BEAUTY_FEATS.length).forEach((x, i)=>{ w[i] = Number(x) || 0; });
   return { w, n: b.n || 0, pre: b.pre || 0, favs: Array.isArray(b.favs) ? b.favs : [] };
 }
 function beautySave(b){ ballSave(BEAUTY_KEY, b); }
@@ -6214,7 +6221,35 @@ function lineFeatures(game, values){
   const span = clamp((w * h) / (4 * (rows - 1)) * 1.2);
   return [tension, flow, offset, counter, contrast, presence, span];
 }
-function beautyScore(game, values, b){ b = b || beautyLoad(); const f = lineFeatures(game, values); return f.reduce((a, x, i)=>a + x * b.w[i], 0); }
+function latestLineOf(game){ const a = ballAll(game); return a.length ? a[a.length-1][2] : null; }
+// 前の当選ライン(prev)と重ねたときの関係を6つの特徴にする
+function pairFeatures(game, prev, cur){
+  if(!prev || prev.length !== cur.length) return new Array(6).fill(0.5);
+  const A = ballSorted(prev).map(n=>[(n-1)%5, Math.floor((n-1)/5)]), B = ballSorted(cur).map(n=>[(n-1)%5, Math.floor((n-1)/5)]), n = A.length;
+  const clamp = x=>Math.max(0, Math.min(1, x));
+  const overlap = cur.filter(v=>prev.indexOf(v) >= 0).length;
+  const ccw = (p, q, r)=>(r[1]-p[1])*(q[0]-p[0]) - (q[1]-p[1])*(r[0]-p[0]);
+  let cross = 0;
+  for(let i=0;i<n-1;i++) for(let j=0;j<n-1;j++){
+    const d1 = ccw(A[i], A[i+1], B[j]), d2 = ccw(A[i], A[i+1], B[j+1]), d3 = ccw(B[j], B[j+1], A[i]), d4 = ccw(B[j], B[j+1], A[i+1]);
+    if(d1*d2 < 0 && d3*d4 < 0) cross++;
+  }
+  const disp = B.map((b, i)=>[b[0]-A[i][0], b[1]-A[i][1]]), shift = disp.reduce((a, d)=>a + Math.hypot(d[0], d[1]), 0) / n;
+  const mx = disp.reduce((a, d)=>a + d[0], 0) / n, my = disp.reduce((a, d)=>a + d[1], 0) / n, coh = Math.hypot(mx, my) / Math.max(0.01, shift);
+  const near = B.filter(b=>A.some(a=>{ const d = Math.hypot(b[0]-a[0], b[1]-a[1]); return d > 0 && d <= 1.5; })).length;
+  const ca = [A.reduce((a, p)=>a + p[0], 0)/n, A.reduce((a, p)=>a + p[1], 0)/n], cb = [B.reduce((a, p)=>a + p[0], 0)/n, B.reduce((a, p)=>a + p[1], 0)/n];
+  const cen = Math.hypot(cb[0]-ca[0], cb[1]-ca[1]);
+  return [clamp(overlap/3), clamp(cross/4), clamp(shift/4), clamp(coh), clamp(near/n), clamp(cen/2.5)];
+}
+// 単一ラインの7特徴 ＋ 前の当選ラインとの関係6特徴（prev 省略時は、最新の当選ライン）
+function beautyF(game, values, prev){ return lineFeatures(game, values).concat(pairFeatures(game, prev === undefined ? latestLineOf(game) : prev, ballSorted(values))); }
+function beautyScore(game, values, b){ b = b || beautyLoad(); const f = beautyF(game, values); return f.reduce((a, x, i)=>a + x * b.w[i], 0); }
+// 当選ライン表示のときは、その1つ前の当選ラインを前として使う
+function prevOfSource(src){
+  const m = /第(\d+)回 当選ライン/.exec(src.label || ''); if(!m) return undefined;
+  const a = ballAll(src.game), i = a.findIndex(r=>r[0] === Number(m[1]));
+  return i > 0 ? a[i-1][2] : undefined;
+}
 function beautyLearn(b, winF, loseF, lr, pre){
   const d = winF.map((x, i)=>x - loseF[i]), z = d.reduce((a, x, i)=>a + x * b.w[i], 0), g = 1 / (1 + Math.exp(z));
   b.w = b.w.map((wi, i)=>Math.max(-5, Math.min(5, wi + (lr || 1.2) * g * d[i]))); if(!pre) b.n++;
@@ -6224,8 +6259,8 @@ async function beautyPretrain(onProgress){
   const b = beautyLoad(); let used = 0;
   for(const game of ['loto7', 'loto6']){
     const negs = [];
-    for(let i=0; i<20; i++){ negs.push(lineFeatures(game, beautyRandomLine(game))); if(onProgress) onProgress(`${game === 'loto6' ? 'ロト6' : 'ロト7'}：比較用の予想ラインを作成中 ${i+1}/20`); await new Promise(r=>setTimeout(r, 0)); }
-    const pos = ballAll(game).slice(-200).map(r=>lineFeatures(game, r[2]));
+    for(let i=0; i<20; i++){ negs.push(beautyF(game, beautyRandomLine(game))); if(onProgress) onProgress(`${game === 'loto6' ? 'ロト6' : 'ロト7'}：比較用の予想ラインを作成中 ${i+1}/20`); await new Promise(r=>setTimeout(r, 0)); }
+    const allRows = ballAll(game), pos = []; for(let i=Math.max(1, allRows.length-200); i<allRows.length; i++) pos.push(beautyF(game, allRows[i][2], allRows[i-1][2]));
     for(let ep=0; ep<4; ep++) pos.forEach((pf, i)=>{ beautyLearn(b, pf, negs[(i*7 + ep) % negs.length], 0.06, true); });
     used += pos.length;
   }
@@ -6242,16 +6277,17 @@ document.getElementById('lnFav').addEventListener('click', ()=>{
   if(!b.favs.some(f=>f.game === src.game && f.values.join() === vals.join())) b.favs.push({ game:src.game, values:vals, label:src.label });
   if(b.favs.length > 50) b.favs.shift();
   let lose = beautyRandomLine(src.game), t = 0; while(lose.join() === vals.join() && t++ < 5) lose = beautyRandomLine(src.game);
-  beautyLearn(b, lineFeatures(src.game, vals), lineFeatures(src.game, lose)); beautySave(b);
+  beautyLearn(b, beautyF(src.game, vals, prevOfSource(src)), beautyF(src.game, lose)); beautySave(b);
   lnRefresh(`★ お気に入りにしました（学習 ${b.n} 回）。「🎨 美しさの学習」で、重視している特徴を見られます`);
 });
 const bp = { game:'loto7', pair:null };
-function bpMini(game, values, color){
+function bpMini(game, values, color, prev){
   const rows = game === 'loto6' ? 9 : 8, W = 5*26, H = rows*26, maxN = game === 'loto6' ? 43 : 37;
   const xy = n=>[((n-1)%5)*26 + 13, Math.floor((n-1)/5)*26 + 13];
   let dots = ''; for(let n=1;n<=maxN;n++){ const [x, y] = xy(n); dots += `<circle cx="${x}" cy="${y}" r="1.6" fill="#3a4a6a"/>`; }
-  const pts = ballSorted(values).map(xy);
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:160px;background:#0b1224;border-radius:8px;">${dots}<path d="${catmullRomPath(pts)}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9"/>${pts.map(([x, y])=>`<circle cx="${x}" cy="${y}" r="3.6" fill="${color}"/>`).join('')}</svg>`;
+  const pts = ballSorted(values).map(xy), pp = prev ? ballSorted(prev).map(xy) : null;
+  const prevSvg = pp ? `<path d="${catmullRomPath(pp)}" fill="none" stroke="#9fb0d0" stroke-width="1.4" stroke-dasharray="3,3" opacity="0.55"/>${pp.map(([x, y])=>`<circle cx="${x}" cy="${y}" r="3" fill="none" stroke="#9fb0d0" stroke-width="1" opacity="0.6"/>`).join('')}` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:160px;background:#0b1224;border-radius:8px;">${dots}${prevSvg}<path d="${catmullRomPath(pts)}" fill="none" stroke="${color}" stroke-width="2" opacity="0.9"/>${pts.map(([x, y])=>`<circle cx="${x}" cy="${y}" r="3.6" fill="${color}"/>`).join('')}</svg>`;
 }
 function bpNewPair(){
   const g = bp.game; let a = beautyRandomLine(g), b = beautyRandomLine(g), t = 0;
@@ -6263,26 +6299,27 @@ function bpRender(){
   if(!bp.pair) bpNewPair();
   const [A, B] = bp.pair, maxAbs = Math.max(0.5, ...b.w.map(Math.abs));
   const bars = BEAUTY_FEATS.map(([k, name, desc], i)=>{
+    const head = i === 0 ? '<div style="font-size:11px;color:#8FE0EE;margin-top:4px;">線そのものの形</div>' : (i === BEAUTY_SINGLE ? '<div style="font-size:11px;color:#8FE0EE;margin-top:8px;">前の当選ラインとの関係（点線の灰色が前の線）</div>' : '');
     const pct = Math.round(Math.abs(b.w[i]) / maxAbs * 50), pos = b.w[i] >= 0;
-    return `<div style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:11px;"><span style="flex:0 0 58px;">${name}</span><span style="flex:1;position:relative;height:8px;background:#1a2540;border-radius:4px;"><span style="position:absolute;top:0;height:8px;${pos ? 'left:50%' : 'right:50%'};width:${pct}%;background:${pos ? '#7CFF8A' : '#ff8a8a'};border-radius:4px;"></span></span><span style="flex:0 0 120px;color:var(--text-dim);font-size:10px;">${desc}</span></div>`;
+    return head + `<div style="display:flex;align-items:center;gap:6px;margin:3px 0;font-size:11px;"><span style="flex:0 0 58px;">${name}</span><span style="flex:1;position:relative;height:8px;background:#1a2540;border-radius:4px;"><span style="position:absolute;top:0;height:8px;${pos ? 'left:50%' : 'right:50%'};width:${pct}%;background:${pos ? '#7CFF8A' : '#ff8a8a'};border-radius:4px;"></span></span><span style="flex:0 0 120px;color:var(--text-dim);font-size:10px;">${desc}</span></div>`;
   }).join('');
   panel.innerHTML = `
-    <div class="ai-msg" style="line-height:1.7;">2本のうち、<b>パッと見て美しい・存在感がある</b>と感じるほうを選んでください。選ぶたびに、重視する形の特徴が少しずつ学習されます。当選とは関係ありません。</div>
+    <div class="ai-msg" style="line-height:1.7;">灰色の点線は、<b>最新の当選ライン</b>です。それに重ねたとき、2本のうち、<b>パッと見て美しい・存在感がある</b>と感じるほうを選んでください。選ぶたびに、重視する形の特徴が少しずつ学習されます。当選とは関係ありません。</div>
     <div style="margin:8px 0;"><button type="button" class="ov-btn${bp.game === 'loto7' ? ' sel act' : ''}" data-bg="loto7">ロト7</button> <button type="button" class="ov-btn${bp.game === 'loto6' ? ' sel act' : ''}" data-bg="loto6">ロト6</button></div>
     <div style="display:flex;gap:12px;justify-content:center;">
-      <div style="flex:1;text-align:center;">${bpMini(bp.game, A, '#6FF5FF')}<div style="margin-top:4px;font-size:11px;">${A.map(v=>String(v).padStart(2,'0')).join(' ')}</div><button type="button" class="draft-save-btn" data-bp="0" style="margin-top:6px;">左が美しい</button></div>
-      <div style="flex:1;text-align:center;">${bpMini(bp.game, B, '#FFA64D')}<div style="margin-top:4px;font-size:11px;">${B.map(v=>String(v).padStart(2,'0')).join(' ')}</div><button type="button" class="draft-save-btn" data-bp="1" style="margin-top:6px;">右が美しい</button></div>
+      <div style="flex:1;text-align:center;">${bpMini(bp.game, A, '#6FF5FF', latestLineOf(bp.game))}<div style="margin-top:4px;font-size:11px;">${A.map(v=>String(v).padStart(2,'0')).join(' ')}</div><button type="button" class="draft-save-btn" data-bp="0" style="margin-top:6px;">左が美しい</button></div>
+      <div style="flex:1;text-align:center;">${bpMini(bp.game, B, '#FFA64D', latestLineOf(bp.game))}<div style="margin-top:4px;font-size:11px;">${B.map(v=>String(v).padStart(2,'0')).join(' ')}</div><button type="button" class="draft-save-btn" data-bp="1" style="margin-top:6px;">右が美しい</button></div>
     </div>
     <div style="text-align:center;margin-top:8px;"><button type="button" class="ov-btn" data-bp="skip">どちらでもない（次へ）</button></div>
     <div style="margin-top:12px;font-weight:700;color:#8FE0EE;">いま重視している特徴（学習 ${b.n} 回・お気に入り ${b.favs.length} 本${b.pre ? '・初期学習済み' : ''}）</div>
     ${(b.n < 5 && !b.pre) ? '<div class="ai-msg">まだ学習が少ないため、予想の生成には反映されません（5回以上、または初期学習で反映）。</div>' : '<div class="ai-msg">AI生成の「別の予想を生む」で、候補12本から、この好みに近い線を選びます。</div>'}
     <div style="margin-top:6px;">${bars}</div>
     <div style="margin-top:8px;"><button type="button" class="ov-btn" id="bpPre">過去の当選ラインから初期学習</button> <button type="button" class="ov-btn" id="bpReset">学習をリセット</button> <span class="ai-msg" id="bpPreMsg"></span></div>
-    <div class="ai-msg" style="margin-top:4px;">初期学習は、直近200回の当選ラインを「見本」、いまの予想ラインを「比べる相手」として、重みの出発点を作ります（ロト7・ロト6の両方）。あとから選ぶ学習が上書きしていきます。</div>`;
+    <div class="ai-msg" style="margin-top:4px;">初期学習は、直近200回の当選ラインを、1つ前の当選ラインと重ねた形で「見本」にし、いまの予想ラインを「比べる相手」として、重みの出発点を作ります（ロト7・ロト6の両方）。以前に初期学習した場合も、もう一度押すと、前の線との関係を含めて学び直せます。あとから選ぶ学習が上書きしていきます。</div>`;
   panel.querySelectorAll('[data-bg]').forEach(x=>x.addEventListener('click', ()=>{ bp.game = x.dataset.bg; bp.pair = null; bpRender(); }));
   panel.querySelectorAll('[data-bp]').forEach(x=>x.addEventListener('click', ()=>{
     const v = x.dataset.bp;
-    if(v !== 'skip'){ const wi = Number(v), W = bp.pair[wi], L = bp.pair[1 - wi], bb = beautyLoad(); beautyLearn(bb, lineFeatures(bp.game, W), lineFeatures(bp.game, L)); beautySave(bb); }
+    if(v !== 'skip'){ const wi = Number(v), W = bp.pair[wi], L = bp.pair[1 - wi], bb = beautyLoad(); beautyLearn(bb, beautyF(bp.game, W), beautyF(bp.game, L)); beautySave(bb); }
     bp.pair = null; bpRender();
   }));
   document.getElementById('bpPre').addEventListener('click', async ()=>{
